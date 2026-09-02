@@ -1,0 +1,30 @@
+# Local credentials and runtime configuration
+API/
+API密钥/
+*.env
+*.env.*
+!*.env.example
+
+# User data and generated media
+data/
+assets/
+output/
+history.json
+logs/
+
+# Bundled/local runtime
+python/
+便携运行环境/
+
+# Python and editor artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.idea/
+.vscode/
+
+# Temporary and local restart files
+*.log
+_self_restart.bat
+_self_restart.log
