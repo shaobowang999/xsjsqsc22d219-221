@@ -5,6 +5,7 @@ set "SQSC_ROOT=%~dp0.."
 set "SQSC_USER_DATA_DIR=%SQSC_ROOT%\用户数据"
 set "SQSC_API_KEY_DIR=%SQSC_ROOT%\API密钥"
 set "PYEXE=%SQSC_ROOT%\便携运行环境\python\python.exe"
+if not exist "%PYEXE%" set "PYEXE=%~dp0python\python.exe"
 if not exist "%PYEXE%" set "PYEXE=python"
 
 set "LAN_IP=127.0.0.1"
