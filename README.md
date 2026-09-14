@@ -5,6 +5,21 @@
 
 请先阅读 [NOTICE.md](NOTICE.md) 和 [LICENSE](LICENSE)，保留原作者署名及第三方依赖许可。
 
+## 公司仓库下载与更新
+
+公司仓库地址：<https://github.com/shaobowang999/xsjsqsc22d219-221>
+
+```powershell
+git clone https://github.com/shaobowang999/xsjsqsc22d219-221.git
+cd xsjsqsc22d219-221
+```
+
+Windows 首次下载后先运行 `安装依赖.bat`，再运行 `启动服务.bat`。后续获取三千思创版本更新：
+
+```powershell
+git pull origin main
+```
+
 Supports comfyui/API calls/modelscope calls
 
 2026/08/28:
