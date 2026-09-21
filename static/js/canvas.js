@@ -15836,10 +15836,6 @@ function startBoardPan(e, opts={}){
 
 board.onmousedown = e => {
     if(!canvas) return;
-    if(e.button === 1){
-        startBoardPan(e);
-        return;
-    }
     if(e.button !== 0) return;
     if(startKnifeDrag(e)) return;
     // Dismiss any open native select dropdown
@@ -15858,6 +15854,19 @@ board.onmousedown = e => {
     }
     startBoardPan(e, {clearSelectionOnClick:true});
 };
+// 中键不再作为画布快捷操作，捕获阶段直接阻止浏览器的自动滚动行为。
+board.addEventListener('mousedown', e => {
+    if(e.button === 1){
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
+board.addEventListener('auxclick', e => {
+    if(e.button === 1){
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
 board.addEventListener('mousemove', e => {
     const point = screenToWorld(e.clientX, e.clientY);
     lastMouseBoard = point;

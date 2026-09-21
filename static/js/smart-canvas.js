@@ -17496,12 +17496,26 @@ shell.onmousedown = e => {
         updateSelectionBox(e);
         return;
     }
-    if(e.button !== 0 && e.button !== 1) return;
+    // 中键不再作为画布快捷操作，避免误触后拖动画布或改变视图。
+    if(e.button !== 0) return;
     e.preventDefault();
     didPan = false;
     panState = {button:e.button, startX:e.clientX, startY:e.clientY, ox:viewport.x, oy:viewport.y};
     shell.classList.add('panning');
 };
+// 捕获阶段拦截中键，避免浏览器自动滚动或其他默认快捷行为。
+shell.addEventListener('mousedown', e => {
+    if(e.button === 1){
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
+shell.addEventListener('auxclick', e => {
+    if(e.button === 1){
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
 shell.oncontextmenu = e => {
     if((e.ctrlKey || e.metaKey) || isRKeyDown){
         e.preventDefault();

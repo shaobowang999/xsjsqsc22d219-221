@@ -145,8 +145,14 @@
 
         /* 侧边栏 */
         .sidebar {
-            width: 80px;
-            min-width: 80px;
+            /* 侧栏尺寸随视口变化，但始终保持可用的最小/最大值。这样在
+               1366、1920 和 4K 屏幕上不会出现过窄或占用过多工作区的情况。 */
+            --sidebar-collapsed-width: clamp(64px, 5.2vw, 88px);
+            --sidebar-expanded-width: clamp(196px, 14vw, 260px);
+            --sidebar-item-size: clamp(38px, 3.1vw, 48px);
+            --sidebar-item-expanded-width: calc(var(--sidebar-expanded-width) - 30px);
+            width: var(--sidebar-collapsed-width);
+            min-width: var(--sidebar-collapsed-width);
             height: 100vh;
             max-height: 100vh;
             background: var(--sidebar-bg);
@@ -154,14 +160,14 @@
             flex-direction: column;
             align-items: center;
             border-right: 1px solid var(--border);
-            padding: 40px 0;
+            padding: clamp(16px, 4vh, 40px) 0;
             transition: width 0.5s var(--fluid-ease) 0.5s, background 0.3s, border-color 0.3s;
             z-index: 50;
             overflow: hidden;
         }
 
         .sidebar:hover {
-            width: 220px;
+            width: var(--sidebar-expanded-width);
             transition-delay: 0s;
         }
 
@@ -181,8 +187,8 @@
         }
 
         .logo-ring {
-            width: 36px;
-            height: 36px;
+            width: clamp(32px, 2.5vw, 40px);
+            height: clamp(32px, 2.5vw, 40px);
             border: 2px solid var(--text);
             border-radius: 12px;
             background: transparent;
@@ -232,10 +238,10 @@
         /* 导航项 */
         .nav-item {
             position: relative;
-            width: 48px;
-            height: 48px;
-            flex: 0 0 48px;
-            margin: 10px 0;
+            width: var(--sidebar-item-size);
+            height: var(--sidebar-item-size);
+            flex: 0 0 var(--sidebar-item-size);
+            margin: clamp(4px, .7vh, 10px) 0;
             display: flex;
             align-items: center;
             justify-content: flex-start;
@@ -245,11 +251,11 @@
             transition: width 0.3s var(--fluid-ease) 0.5s;
             color: var(--muted);
             overflow: hidden;
-            padding-left: 14px;
+            padding-left: clamp(11px, 1vw, 14px);
         }
 
         .sidebar:hover .nav-item {
-            width: 190px;
+            width: var(--sidebar-item-expanded-width);
             transition-delay: 0s;
         }
 
@@ -285,11 +291,11 @@
 
         .nav-fold-toggle {
             position: relative;
-            width: 48px;
-            height: 36px;
-            flex: 0 0 36px;
+            width: var(--sidebar-item-size);
+            height: clamp(30px, 2.5vw, 38px);
+            flex: 0 0 clamp(30px, 2.5vw, 38px);
             margin: 0 0 6px;
-            padding-left: 14px;
+            padding-left: clamp(11px, 1vw, 14px);
             border: 1px solid var(--border);
             border-radius: 16px;
             background: transparent;
@@ -303,7 +309,7 @@
         }
 
         .sidebar:hover .nav-fold-toggle {
-            width: 190px;
+            width: var(--sidebar-item-expanded-width);
             transition-delay: 0s;
         }
 
@@ -615,7 +621,7 @@
         }
 
         .sidebar:hover .side-pill {
-            width: 170px;
+            width: calc(var(--sidebar-expanded-width) - 50px);
             transition-delay: 0s;
         }
 
@@ -750,7 +756,7 @@
         @keyframes badge-pulse { 0%,100%{opacity:.5;} 50%{opacity:1;} }
 
         .sidebar:hover .project-version-badge {
-            width:170px;
+            width:calc(var(--sidebar-expanded-width) - 50px);
             transition-delay:0s;
         }
 
@@ -776,7 +782,7 @@
             transition:width 0.3s var(--fluid-ease) 0.5s, background-color .2s, color .2s, border-color .2s;
         }
         .update-now-btn.show { display:flex; }
-        .sidebar:hover .update-now-btn { width:170px; transition-delay:0s; }
+        .sidebar:hover .update-now-btn { width:calc(var(--sidebar-expanded-width) - 50px); transition-delay:0s; }
         .update-now-btn:hover { background:#16a34a; color:#fff; border-color:#16a34a; }
         .update-now-btn[disabled] { opacity:.7; cursor:wait; }
         .update-now-btn svg { display:none; width:14px; height:14px; flex:0 0 auto; }
@@ -808,6 +814,27 @@
             color:#052e16;
         }
 
+        /* 窄屏时收紧侧栏比例，避免导航栏挤压主工作区；宽屏仍保留足够的
+           展开宽度来显示文字。尺寸由变量统一控制，固定导航状态也一致。 */
+        @media (max-width: 1200px) {
+            .sidebar {
+                --sidebar-collapsed-width: clamp(60px, 5.5vw, 76px);
+                --sidebar-expanded-width: clamp(188px, 18vw, 224px);
+            }
+        }
+
+        @media (max-width: 760px) {
+            .sidebar {
+                --sidebar-collapsed-width: 58px;
+                --sidebar-expanded-width: min(82vw, 216px);
+                --sidebar-item-size: 38px;
+                padding-top: 14px;
+                padding-bottom: 14px;
+            }
+            .sidebar:hover .nav-text,
+            .sidebar.is-pinned .nav-text { font-size: 13px; }
+        }
+
         @media (max-height: 760px) {
             .sidebar {
                 padding: 18px 0 14px;
@@ -827,14 +854,14 @@
             }
             .logo-ring { margin-bottom: 16px !important; }
             .nav-item {
-                height: 42px;
-                flex-basis: 42px;
-                margin: 5px 0;
+                height: clamp(38px, 5.7vh, 42px);
+                flex-basis: clamp(38px, 5.7vh, 42px);
+                margin: clamp(3px, .55vh, 5px) 0;
                 border-radius: 15px;
             }
             .nav-fold-toggle {
-                height: 32px;
-                flex-basis: 32px;
+                height: clamp(30px, 4.2vh, 32px);
+                flex-basis: clamp(30px, 4.2vh, 32px);
                 margin-bottom: 4px;
                 border-radius: 14px;
             }
@@ -884,9 +911,9 @@
                 margin-bottom:10px !important;
             }
             .nav-item {
-                height:38px;
-                flex-basis:38px;
-                margin:3px 0;
+                height:clamp(34px, 5.7vh, 38px);
+                flex-basis:clamp(34px, 5.7vh, 38px);
+                margin:clamp(2px, .45vh, 3px) 0;
                 border-radius:14px;
             }
             .nav-fold-toggle { height:30px; flex-basis:30px; }
@@ -918,6 +945,15 @@
             .side-pill svg { width:15px; height:15px; }
             .project-version-badge { width:38px; min-height:16px; font-size:8px; }
             .update-now-btn.show { width:46px; min-height:22px; font-size:8px; }
+        }
+
+        /* 短屏只收紧垂直间距，不改变悬停展开后的横向比例。 */
+        @media (max-height: 760px) {
+            .sidebar:hover .side-pill,
+            .sidebar:hover .project-version-badge,
+            .sidebar:hover .update-now-btn {
+                width: calc(var(--sidebar-expanded-width) - 50px);
+            }
         }
 
         .studio-modal[hidden] {
@@ -1342,7 +1378,7 @@
         }
 
         .sidebar.is-pinned {
-            width: 220px;
+            width: var(--sidebar-expanded-width);
             transition-delay: 0s;
         }
         .sidebar.is-pinned .logo-ring {
@@ -1364,7 +1400,7 @@
         }
         .sidebar.is-pinned .nav-item,
         .sidebar.is-pinned .nav-fold-toggle {
-            width: 190px;
+            width: var(--sidebar-item-expanded-width);
             transition-delay: 0s;
         }
         .sidebar.is-pinned .nav-text {
@@ -1388,7 +1424,7 @@
             pointer-events: auto;
         }
         .sidebar.is-pinned .side-pill {
-            width: 170px;
+            width: calc(var(--sidebar-expanded-width) - 50px);
             gap: 8px;
             transition-delay: 0s;
         }
@@ -1399,7 +1435,7 @@
         }
         .sidebar.is-pinned .project-version-badge,
         .sidebar.is-pinned .update-now-btn {
-            width: 170px;
+            width: calc(var(--sidebar-expanded-width) - 50px);
             transition-delay: 0s;
         }
         .sidebar.is-pinned .project-version-compact,
@@ -1420,7 +1456,7 @@
         }
 
         .sidebar.is-collapsing:hover {
-            width: 80px;
+            width: var(--sidebar-collapsed-width);
         }
         .sidebar.is-collapsing:hover .logo-ring {
             transform: none;
@@ -1429,7 +1465,7 @@
         }
         .sidebar.is-collapsing:hover .nav-item,
         .sidebar.is-collapsing:hover .nav-fold-toggle {
-            width: 48px;
+            width: var(--sidebar-item-size);
         }
         .sidebar.is-collapsing:hover .nav-text {
             opacity: 0;
@@ -1448,7 +1484,7 @@
             pointer-events: none;
         }
         .sidebar.is-collapsing:hover .side-pill {
-            width: 44px;
+            width: var(--sidebar-item-size);
             gap: 0;
         }
         .sidebar.is-collapsing:hover .side-pill-text {
@@ -1456,7 +1492,7 @@
             max-width: 0;
         }
         .sidebar.is-collapsing:hover .project-version-badge {
-            width: 44px;
+            width: var(--sidebar-item-size);
         }
         .sidebar.is-collapsing:hover .project-version-compact,
         .sidebar.is-collapsing:hover .update-version-compact {
@@ -1468,7 +1504,7 @@
             display: none;
         }
         .sidebar.is-collapsing:hover .update-now-btn {
-            width: 56px;
+            width: calc(var(--sidebar-item-size) + 8px);
         }
         .sidebar.is-collapsing:hover .update-now-btn svg {
             display: none;
@@ -1689,7 +1725,7 @@
             <iframe id="frame-online" data-src="/static/online.html?v=2026.08.28.1788359191" scrolling="yes"></iframe>
             <iframe id="frame-gpt-chat" data-src="/static/gpt-chat.html?v=2026.08.28.1788359191" scrolling="yes"></iframe>
             <iframe id="frame-asset-manager" data-src="/static/asset-manager.html?v=2026.08.28.1788322351" scrolling="yes"></iframe>
-            <iframe id="frame-api-settings" data-src="/static/api-settings.html?v=2026.08.28.1789405542" scrolling="yes"></iframe>
+            <iframe id="frame-api-settings" data-src="/static/api-settings.html?v=2026.08.28.1789454970" scrolling="yes"></iframe>
             <iframe id="frame-comfyui-settings" data-src="/static/comfyui-settings.html?v=2026.08.28.1788359191" scrolling="yes"></iframe>
             <iframe id="frame-canvas" data-src="/static/canvas-list.html?v=2026.08.28.1788359191" scrolling="yes"></iframe>
 
