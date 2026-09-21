@@ -520,27 +520,24 @@
             overflow: hidden;
         }
 
-        .dx-letter {
+        .sqsc-mark {
             position: absolute;
-            font-size: 14px;
-            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1px;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: -0.4px;
             color: var(--text);
-            /* 只过渡 hover 时真正改的 transform/opacity，避免 all 触发延迟 */
             transition: transform 0.5s var(--fluid-ease) 0.4s, opacity 0.5s var(--fluid-ease) 0.4s;
             z-index: 10;
         }
 
-        .letter-d { transform: translateX(-8px); }
-        .letter-x { transform: translateX(8px); }
+        .sqsc-mark span { line-height: 1; }
 
-        .sidebar:hover .letter-d {
-            transform: translateX(-120px);
-            opacity: 0;
-            transition-delay: 0s;
-        }
-
-        .sidebar:hover .letter-x {
-            transform: translateX(120px);
+        .sidebar:hover .sqsc-mark {
+            transform: translateY(14px) scale(0.82);
             opacity: 0;
             transition-delay: 0s;
         }
@@ -565,7 +562,7 @@
         .author-name-lite {
             font-size: 12px;
             font-weight: 700;
-            margin-bottom: 8px;
+            margin-bottom: 0;
             color: var(--author-name);
         }
 
@@ -576,18 +573,6 @@
             color: var(--author-name);
             opacity: 0.55;
             white-space: nowrap;
-        }
-
-        .social-row-lite { display: flex; gap: 12px; }
-
-        .social-icon-lite {
-            color: var(--social-icon);
-            transition: color 0.2s, transform 0.2s;
-        }
-
-        .social-icon-lite:hover {
-            color: var(--text);
-            transform: translateY(-1px);
         }
 
         .side-actions {
@@ -890,8 +875,8 @@
                 height:64px;
                 flex-basis:64px;
             }
-            .dx-letter {
-                font-size:12px;
+            .sqsc-mark {
+                font-size:10px;
             }
         }
 
@@ -939,8 +924,8 @@
                 height:60px;
                 flex-basis:60px;
             }
-            .dx-letter {
-                font-size:11px;
+            .sqsc-mark {
+                font-size:9px;
             }
             .side-pill svg { width:15px; height:15px; }
             .project-version-badge { width:38px; min-height:16px; font-size:8px; }
@@ -1407,13 +1392,8 @@
             opacity: 1;
             transition-delay: 0.1s;
         }
-        .sidebar.is-pinned .letter-d {
-            transform: translateX(-120px);
-            opacity: 0;
-            transition-delay: 0s;
-        }
-        .sidebar.is-pinned .letter-x {
-            transform: translateX(120px);
+        .sidebar.is-pinned .sqsc-mark {
+            transform: translateY(14px) scale(0.82);
             opacity: 0;
             transition-delay: 0s;
         }
@@ -1470,12 +1450,8 @@
         .sidebar.is-collapsing:hover .nav-text {
             opacity: 0;
         }
-        .sidebar.is-collapsing:hover .letter-d {
-            transform: translateX(-8px);
-            opacity: 1;
-        }
-        .sidebar.is-collapsing:hover .letter-x {
-            transform: translateX(8px);
+        .sidebar.is-collapsing:hover .sqsc-mark {
+            transform: none;
             opacity: 1;
         }
         .sidebar.is-collapsing:hover .author-content-wrap {
@@ -1670,34 +1646,13 @@
             </div>
 
             <div class="author-box">
-                <span class="dx-letter letter-d">D</span>
-                <span class="dx-letter letter-x">X</span>
+                <div class="sqsc-mark" aria-label="SQSC">
+                    <span>S</span><span>Q</span><span>S</span><span>C</span>
+                </div>
 
                 <div class="author-content-wrap">
                     <div class="author-name-lite">三千思创</div>
-                    <div class="social-row-lite">
-                        <a href="https://space.bilibili.com/78652351" target="_blank" class="social-icon-lite">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M17.813 4.653h-.854L15.66 3.053a1.147 1.147 0 00-1.63 0l-1.3 1.6h-1.46L9.97 3.053a1.147 1.147 0 00-1.63 0L7.043 4.653h-.854a3.946 3.946 0 00-3.93 3.934v8.117a3.946 3.946 0 003.93 3.934h11.624a3.946 3.946 0 003.93-3.934V8.587a3.946 3.946 0 00-3.93-3.934zM7.152 13.9a1.465 1.465 0 111.47-1.462 1.465 1.465 0 01-1.47 1.462zm7.696 0a1.465 1.465 0 111.47-1.462 1.465 1.465 0 01-1.47 1.462z" />
-                            </svg>
-                        </a>
-                        <a href="https://www.xiaohongshu.com/user/profile/6433c34c000000001a023538" target="_blank" class="social-icon-lite">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z" />
-                            </svg>
-                        </a>
-                        <a href="https://www.youtube.com/@%E5%A4%A7%E9%9B%84dx" target="_blank" class="social-icon-lite">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                            </svg>
-                        </a>
-                        <a href="https://x.com/dx8152?s=21" target="_blank" class="social-icon-lite">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                            </svg>
-                        </a>
-                    </div>
-                    <div class="author-credit-lite">基于 Infinite Canvas 开源项目</div>
+                    <div class="author-credit-lite">源至 DX</div>
                 </div>
             </div>
         </aside>
