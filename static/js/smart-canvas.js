@@ -2149,9 +2149,9 @@ function renderMinimap(){
     minimapContent.innerHTML = `${nodeHtml}<div id="minimapViewport" class="smart-minimap-viewport" style="left:${view.left}px;top:${view.top}px;width:${view.width}px;height:${view.height}px"></div>`;
     minimapViewport = document.getElementById('minimapViewport');
 }
-function minimapEventToWorld(event){
-    if(!smartMinimapState) renderMinimap();
-    const state = smartMinimapState;
+function minimapEventToWorld(event, stateOverride=null){
+    if(!stateOverride && !smartMinimapState) renderMinimap();
+    const state = stateOverride || smartMinimapState;
     if(!state) return viewportCenter();
     const rect = minimapContent.getBoundingClientRect();
     const mx = event.clientX - rect.left;
@@ -2165,6 +2165,12 @@ function centerViewportOnWorldPoint(point){
     viewport.x = shell.clientWidth / 2 - point.x * viewport.scale;
     viewport.y = shell.clientHeight / 2 - point.y * viewport.scale;
     applyViewport();
+    scheduleSave();
+}
+function finishSmartMinimapDrag(){
+    if(!smartMinimapDrag) return;
+    smartMinimapDrag = false;
+    minimap?.classList.remove('dragging');
     scheduleSave();
 }
 function fitAllNodesViewport(){
@@ -17469,6 +17475,17 @@ shell.addEventListener('click', e => {
     if(nodeEl?.dataset?.id) exitZoomPreviewToNode(nodeEl.dataset.id);
     else exitZoomPreview(screenToWorld(e));
 }, true);
+function startSmartCanvasPan(e){
+    if(e.button !== 1) return false;
+    if(e.target.closest('.composer,.smart-back,.asset-panel,.asset-toggle,.smart-log-toggle,.smart-shortcut-toggle,.smart-workflow-toggle,.workflow-transfer-panel,.log-modal,.shortcut-modal,.image-edit-modal,.create-menu,.smart-minimap')) return false;
+    e.preventDefault();
+    e.stopPropagation();
+    closeCreateMenu();
+    didPan = false;
+    panState = {button:e.button, startX:e.clientX, startY:e.clientY, ox:viewport.x, oy:viewport.y};
+    shell.classList.add('panning');
+    return true;
+}
 shell.onmousedown = e => {
     if(zoomPreviewState && e.button === 0 && !e.target.closest('.composer,.smart-back,.asset-panel,.asset-toggle,.smart-log-toggle,.smart-shortcut-toggle,.smart-workflow-toggle,.log-modal,.shortcut-modal,.image-edit-modal,.create-menu,.smart-minimap')) return;
     if(e.target.closest('.image-node,.composer,.smart-back,.asset-panel,.asset-toggle,.smart-log-toggle,.smart-shortcut-toggle,.smart-workflow-toggle,.log-modal,.shortcut-modal,.create-menu,.smart-minimap')) return;
@@ -17482,32 +17499,19 @@ shell.onmousedown = e => {
         eraseConnectionsAtPoint(e);
         return;
     }
-    if(e.button === 0 && isRKeyDown){
-        e.preventDefault();
-        didPan = false;
-        selectionState = {startScreen:{x:e.clientX, y:e.clientY}, startWorld:screenToWorld(e)};
-        updateSelectionBox(e);
-        return;
-    }
-    if(e.button === 0 && (e.ctrlKey || e.metaKey)){
-        e.preventDefault();
-        didPan = false;
-        selectionState = {startScreen:{x:e.clientX, y:e.clientY}, startWorld:screenToWorld(e)};
-        updateSelectionBox(e);
-        return;
-    }
-    // 中键不再作为画布快捷操作，避免误触后拖动画布或改变视图。
     if(e.button !== 0) return;
     e.preventDefault();
     didPan = false;
-    panState = {button:e.button, startX:e.clientX, startY:e.clientY, ox:viewport.x, oy:viewport.y};
-    shell.classList.add('panning');
+    selectionState = {startScreen:{x:e.clientX, y:e.clientY}, startWorld:screenToWorld(e)};
+    updateSelectionBox(e);
 };
-// 捕获阶段拦截中键，避免浏览器自动滚动或其他默认快捷行为。
+// 捕获中键，使鼠标停在节点上时也能抓取并平移画布。
 shell.addEventListener('mousedown', e => {
     if(e.button === 1){
-        e.preventDefault();
-        e.stopPropagation();
+        if(!startSmartCanvasPan(e)){
+            e.preventDefault();
+            e.stopPropagation();
+        }
     }
 }, true);
 shell.addEventListener('auxclick', e => {
@@ -17556,8 +17560,10 @@ minimap?.addEventListener('mousedown', e => {
     if(e.target.closest?.('#smartArrangeBtn')) return;
     e.preventDefault();
     e.stopPropagation();
-    smartMinimapDrag = true;
-    centerViewportOnWorldPoint(minimapEventToWorld(e));
+    const minimapSnapshot = smartMinimapState ? {...smartMinimapState} : null;
+    smartMinimapDrag = {state:minimapSnapshot};
+    minimap.classList.add('dragging');
+    centerViewportOnWorldPoint(minimapEventToWorld(e, minimapSnapshot));
 });
 smartArrangeBtn?.addEventListener('mousedown', e => e.stopPropagation());
 smartArrangeBtn?.addEventListener('click', e => {
@@ -17569,7 +17575,7 @@ window.onmousemove = e => {
     lastMouseWorld = screenToWorld(e);
     if(smartMinimapDrag){
         e.preventDefault();
-        centerViewportOnWorldPoint(minimapEventToWorld(e));
+        centerViewportOnWorldPoint(minimapEventToWorld(e, smartMinimapDrag.state));
         return;
     }
     if(connectionEraseState){
@@ -17915,7 +17921,7 @@ window.onmouseup = e => {
         setTimeout(() => { didPan = false; }, 0);
     }
     if(smartMinimapDrag){
-        smartMinimapDrag = false;
+        finishSmartMinimapDrag();
     }
     if(dragState){
         const draggedNode = nodes.find(n => n.id === dragState.id);
@@ -18177,6 +18183,16 @@ window.addEventListener('keyup', e => {
 });
 window.addEventListener('blur', () => {
     isRKeyDown = false;
+    if(selectionState){
+        selectionState = null;
+        selectionBox.style.display = 'none';
+    }
+    if(panState){
+        panState = null;
+        shell.classList.remove('panning');
+        scheduleSave();
+    }
+    finishSmartMinimapDrag();
 });
 engineSelect.onchange = () => {
     settings.engine = engineSelect.value;

@@ -8,6 +8,14 @@
         return localStorage.getItem(KEY) || localStorage.getItem(LEGACY_KEY) || 'light';
     }
 
+    function blockModifiedWheelZoom(event){
+        if(!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    }
+
+    window.addEventListener('wheel', blockModifiedWheelZoom, { capture: true, passive: false });
+
     function applyTheme(theme){
         const next = theme === 'dark' ? 'dark' : 'light';
         const dark = next === 'dark';

@@ -1275,9 +1275,9 @@ function updateMinimapViewport(){
     minimapViewport.style.width = `${Math.max(8, r.w * scale)}px`;
     minimapViewport.style.height = `${Math.max(8, r.h * scale)}px`;
 }
-function minimapEventToWorld(e){
-    if(!minimapState) renderMinimap();
-    const state = minimapState;
+function minimapEventToWorld(e, stateOverride=null){
+    if(!stateOverride && !minimapState) renderMinimap();
+    const state = stateOverride || minimapState;
     const rect = minimapContent.getBoundingClientRect();
     const x = (e.clientX - rect.left - state.ox) / state.scale + state.bounds.x;
     const y = (e.clientY - rect.top - state.oy) / state.scale + state.bounds.y;
@@ -15767,22 +15767,29 @@ function isEditableTarget(target){
     const tag = target?.tagName;
     return tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable || target?.closest?.('select, option');
 }
+function finishMinimapDrag(){
+    if(!minimapDrag) return;
+    minimapDrag = false;
+    minimap?.classList.remove('dragging');
+    window.onmousemove = null;
+    window.onmouseup = null;
+    scheduleViewportSave();
+}
 minimap?.addEventListener('mousedown', e => {
     if(!canvas || e.button !== 0) return;
     if(e.target.closest?.('#canvasArrangeBtn')) return;
     e.preventDefault();
     e.stopPropagation();
-    minimapDrag = true;
-    centerViewportOnWorldPoint(minimapEventToWorld(e));
+    const minimapSnapshot = minimapState ? {...minimapState, bounds:{...minimapState.bounds}} : null;
+    minimapDrag = {state:minimapSnapshot};
+    minimap.classList.add('dragging');
+    centerViewportOnWorldPoint(minimapEventToWorld(e, minimapSnapshot));
     window.onmousemove = e2 => {
-        if(minimapDrag) centerViewportOnWorldPoint(minimapEventToWorld(e2));
+        if(!minimapDrag) return;
+        e2.preventDefault();
+        centerViewportOnWorldPoint(minimapEventToWorld(e2, minimapDrag.state));
     };
-    window.onmouseup = () => {
-        minimapDrag = false;
-        window.onmousemove = null;
-        window.onmouseup = null;
-        scheduleViewportSave();
-    };
+    window.onmouseup = finishMinimapDrag;
 });
 canvasArrangeBtn?.addEventListener('mousedown', e => e.stopPropagation());
 canvasArrangeBtn?.addEventListener('click', e => {
@@ -15810,7 +15817,8 @@ board.addEventListener('click', e => {
 }, true);
 function startBoardPan(e, opts={}){
     if(!canvas) return false;
-    if(isEditableTarget(e.target) || e.target.closest?.('#createMenu, #linkCreateMenu, #nodeInputMenu, #nodeOutputMenu, #imageNodeMenu, .minimap')) return false;
+    const allowInteractiveTarget = Boolean(opts.allowInteractiveTarget);
+    if((!allowInteractiveTarget && isEditableTarget(e.target)) || e.target.closest?.('#createMenu, #linkCreateMenu, #nodeInputMenu, #nodeOutputMenu, #imageNodeMenu, .minimap')) return false;
     e.preventDefault();
     e.stopPropagation();
     closeCreateMenu();
@@ -15842,23 +15850,15 @@ board.onmousedown = e => {
     if(document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
     if(e.target !== board && e.target !== world && e.target !== nodesEl && e.target !== linksEl) return;
     closeCreateMenu();
-    if(isRKeyDown){
-        e.preventDefault();
-        startSelection(e);
-        return;
-    }
-    if(e.ctrlKey || e.metaKey){
-        e.preventDefault();
-        startSelection(e);
-        return;
-    }
-    startBoardPan(e, {clearSelectionOnClick:true});
+    startSelection(e);
 };
-// 中键不再作为画布快捷操作，捕获阶段直接阻止浏览器的自动滚动行为。
+// 中键可从画布或节点上直接抓取并平移视图。
 board.addEventListener('mousedown', e => {
     if(e.button === 1){
-        e.preventDefault();
-        e.stopPropagation();
+        if(!startBoardPan(e, {allowInteractiveTarget:true})){
+            e.preventDefault();
+            e.stopPropagation();
+        }
     }
 }, true);
 board.addEventListener('auxclick', e => {
@@ -16046,7 +16046,8 @@ window.addEventListener('blur', () => {
         window.onmousemove = null;
         window.onmouseup = null;
     }
-    if(dragNode || resizeNode || llmPaneDrag || dragBoard || minimapDrag || knifeActive) endDrag();
+    if(minimapDrag) finishMinimapDrag();
+    if(dragNode || resizeNode || llmPaneDrag || dragBoard || knifeActive) endDrag();
 });
 function deleteSelectedNodes(){
     if(!canvas || selected.size === 0) return;
