@@ -24,6 +24,10 @@ venv/
 .idea/
 .vscode/
 
+# Desktop packaging output
+build/
+dist/
+
 # Temporary and local restart files
 *.log
 _self_restart.bat

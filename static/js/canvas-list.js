@@ -43,6 +43,7 @@ function renderCanvasIcon(icon, size = 16){
 /* ===== DOM refs ===== */
 const board = document.getElementById('board');
 const boardWorld = document.getElementById('boardWorld');
+const boardSelectionBox = document.getElementById('boardSelectionBox');
 const boardEmptyHint = document.getElementById('boardEmptyHint');
 const boardProjectName = document.getElementById('boardProjectName');
 const boardCanvasCount = document.getElementById('boardCanvasCount');
@@ -72,6 +73,8 @@ let currentProjectId = rememberedProjectId();
 let pendingDeleteProjectId = null;
 let statusTimer = null;
 let clipboardCanvasId = null;   // 剪切的画布（切到别的项目后粘贴）
+let selectedCanvasIds = new Set();
+let selectionDrag = null;
 
 // board viewport (mirrors smart-canvas math)
 const viewport = { x: 0, y: 0, scale: 1 };
@@ -138,11 +141,14 @@ function resetView(){
 /* ===== Board pan & zoom ===== */
 let panState = null;
 function onBoardPanStart(e){
-    if(e.button !== 0) return;
-    if(e.target.closest('.ws-card') || e.target.closest('.ws-create-card') || e.target.closest('.ws-card-pop') || e.target.closest('button,input,textarea,select')) return;
+    if(e.button !== 1) return false;
+    if(e.target.closest('.ws-create-card') || e.target.closest('.ws-card-pop') || e.target.closest('button,input,textarea,select')) return false;
     closeCardMenu();
     panState = { startX: e.clientX, startY: e.clientY, ox: viewport.x, oy: viewport.y, moved: false };
     board.classList.add('panning');
+    e.preventDefault();
+    e.stopPropagation();
+    return true;
 }
 function onBoardPanMove(e){
     if(!panState) return;
@@ -152,9 +158,10 @@ function onBoardPanMove(e){
     applyViewport();
 }
 function onBoardPanEnd(){
-    if(!panState) return;
+    if(!panState) return false;
     panState = null;
     board.classList.remove('panning');
+    return true;
 }
 function onBoardWheel(e){
     e.preventDefault();
@@ -257,6 +264,7 @@ function renderProjects(){
 function selectProject(pid){
     if(pid === currentProjectId && !trashPanel.classList.contains('active')) return;
     currentProjectId = pid;
+    selectedCanvasIds.clear();
     rememberProjectId(pid);
     closeTrashView();
     renderProjects();
@@ -377,6 +385,8 @@ function autoLayoutNulls(items){
 function renderBoard(){
     updateBoardHeader();
     const items = canvasesInProject(currentProjectId);
+    const visibleIds = new Set(items.map(item => item.id));
+    selectedCanvasIds = new Set([...selectedCanvasIds].filter(id => visibleIds.has(id)));
     autoLayoutNulls(items);
     boardWorld.innerHTML = '';
     items.forEach(c => boardWorld.appendChild(buildCard(c)));
@@ -390,8 +400,10 @@ function buildCard(c){
     const card = document.createElement('div');
     card.className = 'ws-card'
         + (String(c.color || '').trim() ? ' cc-marked' : '')
-        + (clipboardCanvasId === c.id ? ' cut' : '');
+        + (clipboardCanvasId === c.id ? ' cut' : '')
+        + (selectedCanvasIds.has(c.id) ? ' selected' : '');
     card.dataset.canvasId = c.id;
+    card.setAttribute('aria-selected', selectedCanvasIds.has(c.id) ? 'true' : 'false');
     card.style.left = (c.board_x || 0) + 'px';
     card.style.top = (c.board_y || 0) + 'px';
     // 卡片布局：顶部=类型标签+更多按钮；中部=标题；底部=节点数·时间。已移除图标。
@@ -413,7 +425,7 @@ function buildCard(c){
                 <button class="ws-card-delete-no" type="button">${L('取消','Cancel')}</button>
             </div>
         </div>`;
-    attachCardDrag(card, c);
+    attachCardInteractions(card, c);
     const menuBtn = card.querySelector('.ws-card-menu');
     menuBtn.onmousedown = e => e.stopPropagation();
     menuBtn.onclick = e => { e.stopPropagation(); openCardMenu(c.id, menuBtn); };
@@ -423,43 +435,132 @@ function buildCard(c){
     return card;
 }
 
-/* ===== Card drag vs click ===== */
-function attachCardDrag(card, c){
+/* ===== Card select, group drag, and double-click open ===== */
+function refreshCardSelectionVisuals(){
+    boardWorld.querySelectorAll('.ws-card').forEach(card => {
+        const selected = selectedCanvasIds.has(card.dataset.canvasId);
+        card.classList.toggle('selected', selected);
+        card.setAttribute('aria-selected', selected ? 'true' : 'false');
+    });
+}
+function setCanvasSelection(ids){
+    selectedCanvasIds = new Set(ids || []);
+    refreshCardSelectionVisuals();
+}
+function attachCardInteractions(card, c){
     card.addEventListener('mousedown', e => {
         if(e.button !== 0) return;
         if(e.target.closest('.ws-card-menu')) return;
         if(e.target.closest('.ws-card-delete-confirm')) return;
         if(card.querySelector('.ws-card-title-input')) return; // editing title
+        e.preventDefault();
         e.stopPropagation();
         closeCardMenu();
+        const additive = e.ctrlKey || e.metaKey || e.shiftKey;
+        const wasSelected = selectedCanvasIds.has(c.id);
+        if(!wasSelected){
+            if(additive) selectedCanvasIds.add(c.id);
+            else selectedCanvasIds = new Set([c.id]);
+            refreshCardSelectionVisuals();
+        }
         const startWorld = screenToWorld(e.clientX, e.clientY);
-        const origX = c.board_x || 0, origY = c.board_y || 0;
+        const dragItems = [...selectedCanvasIds].map(id => {
+            const item = canvases.find(canvas => canvas.id === id);
+            const el = boardWorld.querySelector(`.ws-card[data-canvas-id="${CSS.escape(id)}"]`);
+            return item && el ? {item, el, ox:item.board_x || 0, oy:item.board_y || 0} : null;
+        }).filter(Boolean);
         let moved = false;
         const onMove = ev => {
             const w = screenToWorld(ev.clientX, ev.clientY);
             const dx = w.x - startWorld.x, dy = w.y - startWorld.y;
             if(!moved && (Math.abs(dx * viewport.scale) > 5 || Math.abs(dy * viewport.scale) > 5)){
-                moved = true; card.classList.add('dragging');
+                moved = true;
+                dragItems.forEach(entry => entry.el.classList.add('dragging'));
             }
             if(moved){
-                c.board_x = origX + dx; c.board_y = origY + dy;
-                card.style.left = c.board_x + 'px';
-                card.style.top = c.board_y + 'px';
+                dragItems.forEach(entry => {
+                    entry.item.board_x = entry.ox + dx;
+                    entry.item.board_y = entry.oy + dy;
+                    entry.el.style.left = entry.item.board_x + 'px';
+                    entry.el.style.top = entry.item.board_y + 'px';
+                });
             }
         };
         const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
-            card.classList.remove('dragging');
+            dragItems.forEach(entry => entry.el.classList.remove('dragging'));
             if(moved){
-                persistMeta(c.id, { board_x: Math.round(c.board_x), board_y: Math.round(c.board_y) });
+                dragItems.forEach(entry => persistMeta(entry.item.id, {
+                    board_x: Math.round(entry.item.board_x),
+                    board_y: Math.round(entry.item.board_y)
+                }));
+            } else if(additive){
+                if(wasSelected) selectedCanvasIds.delete(c.id);
+                refreshCardSelectionVisuals();
             } else {
-                openCanvas(c);
+                setCanvasSelection([c.id]);
             }
         };
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
     });
+    card.addEventListener('dblclick', e => {
+        if(e.button !== 0) return;
+        if(e.target.closest('.ws-card-menu, .ws-card-delete-confirm, input, button')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openCanvas(c);
+    });
+}
+
+function onBoardSelectionStart(e){
+    if(e.button !== 0) return;
+    if(e.target.closest('.ws-card,.ws-create-card,.ws-card-pop,button,input,textarea,select')) return;
+    closeCardMenu();
+    const additive = e.ctrlKey || e.metaKey || e.shiftKey;
+    selectionDrag = {
+        sx:e.clientX,
+        sy:e.clientY,
+        x:e.clientX,
+        y:e.clientY,
+        moved:false,
+        additive,
+        base:additive ? new Set(selectedCanvasIds) : new Set()
+    };
+    e.preventDefault();
+}
+function updateBoardSelection(e){
+    if(!selectionDrag) return;
+    selectionDrag.x = e.clientX;
+    selectionDrag.y = e.clientY;
+    if(!selectionDrag.moved && Math.hypot(e.clientX - selectionDrag.sx, e.clientY - selectionDrag.sy) <= 5) return;
+    selectionDrag.moved = true;
+    const left = Math.min(selectionDrag.sx, e.clientX);
+    const top = Math.min(selectionDrag.sy, e.clientY);
+    const right = Math.max(selectionDrag.sx, e.clientX);
+    const bottom = Math.max(selectionDrag.sy, e.clientY);
+    const boardRect = board.getBoundingClientRect();
+    boardSelectionBox.style.display = 'block';
+    boardSelectionBox.style.left = `${left - boardRect.left}px`;
+    boardSelectionBox.style.top = `${top - boardRect.top}px`;
+    boardSelectionBox.style.width = `${right - left}px`;
+    boardSelectionBox.style.height = `${bottom - top}px`;
+    const next = new Set(selectionDrag.base);
+    boardWorld.querySelectorAll('.ws-card').forEach(card => {
+        const rect = card.getBoundingClientRect();
+        if(rect.left < right && rect.right > left && rect.top < bottom && rect.bottom > top){
+            next.add(card.dataset.canvasId);
+        }
+    });
+    setCanvasSelection(next);
+}
+function finishBoardSelection(){
+    if(!selectionDrag) return false;
+    if(!selectionDrag.moved && !selectionDrag.additive) setCanvasSelection([]);
+    selectionDrag = null;
+    boardSelectionBox.style.display = 'none';
+    return true;
 }
 
 function openCanvas(c){
@@ -980,9 +1081,28 @@ async function purgeCanvas(id){
 }
 
 /* ===== Event bindings ===== */
-board.addEventListener('mousedown', onBoardPanStart);
+// 与进入后的普通/智能画布保持一致：左键用于点击/拖动卡片，中键按住拖动画布。
+// 捕获阶段接管中键，避免浏览器触发自动滚动；卡片上也可以直接中键抓取视图。
+board.addEventListener('mousedown', e => {
+    if(e.button !== 1) return;
+    if(!onBoardPanStart(e)){
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
+board.addEventListener('mousedown', onBoardSelectionStart);
 document.addEventListener('mousemove', onBoardPanMove);
+document.addEventListener('mousemove', updateBoardSelection);
 document.addEventListener('mouseup', onBoardPanEnd);
+document.addEventListener('mouseup', finishBoardSelection);
+window.addEventListener('blur', onBoardPanEnd);
+window.addEventListener('blur', finishBoardSelection);
+board.addEventListener('auxclick', e => {
+    if(e.button === 1){
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
 board.addEventListener('wheel', onBoardWheel, { passive: false });
 board.addEventListener('dblclick', e => {
     if(e.target.closest('.ws-card') || e.target.closest('.ws-create-card')) return;

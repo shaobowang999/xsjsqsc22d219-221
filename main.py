@@ -217,7 +217,42 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str = None):
 
 CLIENT_ID = str(uuid.uuid4())
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-USER_DATA_DIR = os.path.abspath(os.getenv("SQSC_USER_DATA_DIR") or BASE_DIR)
+
+def _select_user_data_dir():
+    """选择可写的用户数据目录。
+
+    启动脚本会通过 SQSC_USER_DATA_DIR 指定 D 盘的“用户数据”目录；
+    若旧启动方式未设置该变量，优先使用代码仓库同级目录的“用户数据”。
+    当目录因权限、只读介质或安全软件而不可写时，自动回退到当前用户的
+    LocalAppData，确保创建画布等核心功能仍可用。
+    """
+    configured = os.getenv("SQSC_USER_DATA_DIR")
+    candidates = []
+    if configured:
+        candidates.append(os.path.abspath(os.path.expandvars(os.path.expanduser(configured))))
+    sibling = os.path.abspath(os.path.join(BASE_DIR, os.pardir, "用户数据"))
+    if sibling not in candidates:
+        candidates.append(sibling)
+    if BASE_DIR not in candidates:
+        candidates.append(BASE_DIR)
+    local_app_data = os.getenv("LOCALAPPDATA")
+    if local_app_data:
+        fallback = os.path.join(local_app_data, "三千思创", "无限画布")
+        if fallback not in candidates:
+            candidates.append(fallback)
+
+    for candidate in candidates:
+        try:
+            probe_dir = os.path.join(candidate, "data", "canvases")
+            os.makedirs(probe_dir, exist_ok=True)
+            if os.access(probe_dir, os.W_OK):
+                return candidate
+        except (OSError, PermissionError) as exc:
+            print(f"用户数据目录不可写，尝试下一个目录: {candidate} ({exc})")
+    # 让后续初始化抛出明确异常，而不是静默写入错误位置。
+    return candidates[-1] if candidates else BASE_DIR
+
+USER_DATA_DIR = _select_user_data_dir()
 API_KEY_DIR = os.path.abspath(os.getenv("SQSC_API_KEY_DIR") or os.path.join(BASE_DIR, "API"))
 WORKFLOW_DIR = os.path.join(BASE_DIR, "workflows")
 WORKFLOW_PATH = os.path.join(WORKFLOW_DIR, "Z-Image.json")
