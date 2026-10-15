@@ -16,7 +16,9 @@ cd xsjsqsc22d219-221
 
 Windows 首次下载后先运行 `安装依赖.bat`，再运行 `启动服务.bat`。后续获取三千思创版本更新：
 
-如需直接使用桌面软件，可运行 `构建桌面版.bat` 生成 `dist/三千思创无线画布/三千思创无线画布.exe`，或直接使用已构建目录中的 exe。桌面版会在独立窗口中打开，不显示命令行页面；使用时必须保留 exe 旁边的 `_internal` 文件夹。详见 `桌面版使用说明.md`。
+如需直接使用桌面软件，可运行 `构建桌面版.bat` 生成 `dist/三千思创无线画布/三千思创无线画布.exe`，或直接使用已构建目录中的 exe。
+
+10.15 Windows 桌面版：[下载三千思创无线画布-10.15-win-x64.zip](https://github.com/shaobowang999/xsjsqsc22d219-221/raw/refs/heads/main/%E4%B8%89%E5%8D%83%E6%80%9D%E5%88%9B%E6%97%A0%E7%BA%BF%E7%94%BB%E5%B8%83-10.15-win-x64.zip)桌面版会在独立窗口中打开，不显示命令行页面；使用时必须保留 exe 旁边的 `_internal` 文件夹。详见 `桌面版使用说明.md`。
 
 ```powershell
 git pull origin main
@@ -108,3 +110,4 @@ Commercial use is prohibited.
 
 <img width="2196" height="1040" alt="image" src="https://github.com/user-attachments/assets/6d823668-cde2-4836-8332-1858efe5f520" />
 <img width="2214" height="771" alt="image" src="https://github.com/user-attachments/assets/52e10958-753f-45ba-a50e-3bbec27be436" />
+
