@@ -7,6 +7,13 @@
 
 ## 公司仓库下载与更新
 
+### 当前版本：10.21
+
+**[下载 Windows 10.21 完整桌面包（含 SQSC 图标和卸载程序）](https://github.com/shaobowang999/xsjsqsc22d219-221/raw/refs/heads/main/三千思创无线画布-10.21-win-x64-with-uninstall.zip)**
+
+下载后完整解压，双击 `三千思创无线画布.exe` 启动。卸载时关闭画布，运行同目录的 `uninstall.exe` 并确认；用户数据和 API 配置会保留。
+
+
 公司仓库地址：<https://github.com/shaobowang999/xsjsqsc22d219-221>
 
 ```powershell
@@ -18,7 +25,7 @@ Windows 首次下载后先运行 `安装依赖.bat`，再运行 `启动服务.ba
 
 如需直接使用桌面软件，可运行 `构建桌面版.bat` 生成 `dist/三千思创无线画布/三千思创无线画布.exe`，或直接使用已构建目录中的 exe。
 
-10.15 Windows 桌面版：[下载三千思创无线画布-10.15-win-x64.zip](https://github.com/shaobowang999/xsjsqsc22d219-221/raw/refs/heads/main/%E4%B8%89%E5%8D%83%E6%80%9D%E5%88%9B%E6%97%A0%E7%BA%BF%E7%94%BB%E5%B8%83-10.15-win-x64.zip)桌面版会在独立窗口中打开，不显示命令行页面；使用时必须保留 exe 旁边的 `_internal` 文件夹。详见 `桌面版使用说明.md`。
+桌面版会在独立窗口中打开，不显示命令行页面。请保留 EXE 旁边的 `_internal` 文件夹；完整使用与卸载说明见 [桌面版使用说明.md](桌面版使用说明.md)。
 
 ```powershell
 git pull origin main
@@ -113,4 +120,4 @@ Commercial use is prohibited.
 
 
 
-10.15 含卸载程序版：[下载完整 Windows 桌面压缩包](https://github.com/shaobowang999/xsjsqsc22d219-221/raw/refs/heads/main/三千思创无线画布-10.15-win-x64-with-uninstall.zip)。解压后双击画布 EXE 启动；不再使用时关闭画布，双击同目录的 uninstall.exe，确认后卸载。用户数据和 API 配置会保留。
+10.21 含卸载程序版：[下载完整 Windows 桌面压缩包](https://github.com/shaobowang999/xsjsqsc22d219-221/raw/refs/heads/main/三千思创无线画布-10.21-win-x64-with-uninstall.zip)。解压后双击画布 EXE 启动；不再使用时关闭画布，双击同目录的 uninstall.exe，确认后卸载。用户数据和 API 配置会保留。
