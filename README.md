@@ -111,3 +111,6 @@ Commercial use is prohibited.
 <img width="2196" height="1040" alt="image" src="https://github.com/user-attachments/assets/6d823668-cde2-4836-8332-1858efe5f520" />
 <img width="2214" height="771" alt="image" src="https://github.com/user-attachments/assets/52e10958-753f-45ba-a50e-3bbec27be436" />
 
+
+
+10.15 含卸载程序版：[下载完整 Windows 桌面压缩包](https://github.com/shaobowang999/xsjsqsc22d219-221/raw/refs/heads/main/三千思创无线画布-10.15-win-x64-with-uninstall.zip)。解压后双击画布 EXE 启动；不再使用时关闭画布，双击同目录的 uninstall.exe，确认后卸载。用户数据和 API 配置会保留。

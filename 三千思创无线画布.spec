@@ -61,3 +61,12 @@ coll = COLLECT(
     upx_exclude=[],
     name="三千思创无线画布",
 )
+
+# Add a standalone uninstaller and a manifest of packaged files.
+import subprocess
+from pathlib import Path
+subprocess.run([
+    "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+    "-File", str(Path(SPECPATH) / "tools" / "desktop-uninstaller" / "package-uninstaller.ps1"),
+    "-AppDirectory", str(coll.name),
+], check=True)
