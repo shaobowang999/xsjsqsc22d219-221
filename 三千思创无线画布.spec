@@ -40,6 +40,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name="三千思创无线画布",
+    icon="resources/desktop/sqsc.ico",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
