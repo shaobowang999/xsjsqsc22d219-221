@@ -72,7 +72,7 @@ internal static class Uninstall
                 if (File.Exists(path)) using (File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
             }
             int failed = 0;
-            foreach (string rel in files.Where(p => p != Manifest && p != "uninstall.exe"))
+            foreach (string rel in files.Where(p => p != Manifest && p != "uninstall.exe" && p != AppExe))
             {
                 try { File.Delete(Path.Combine(root, rel)); }
                 catch { failed++; }
@@ -92,6 +92,7 @@ internal static class Uninstall
                     current = Path.GetDirectoryName(current);
                 }
             }
+            File.Delete(Path.Combine(root, AppExe));
             File.Delete(Path.Combine(root, "uninstall.exe"));
             File.Delete(Path.Combine(root, Manifest));
             try { Directory.Delete(root, false); } catch (IOException) { }
