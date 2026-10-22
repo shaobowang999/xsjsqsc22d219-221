@@ -1,6 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 from PyInstaller.utils.hooks import collect_all
+import ssl
+from pathlib import Path
 
 
 datas = [
@@ -10,6 +12,11 @@ datas = [
     ("workflows", "workflows"),
 ]
 binaries = []
+# Some Python distributions load an additional certificate policy when creating
+# SSL contexts. Keep that runtime data alongside the frozen ssl module.
+ssl_policy = Path(ssl.__file__).with_name("codex-rejected-cas.pem")
+if ssl_policy.is_file():
+    datas.append((str(ssl_policy), "."))
 # Analyze backend dependencies even though the launcher loads its source at runtime.
 hiddenimports = ["main"]
 

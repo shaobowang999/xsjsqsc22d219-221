@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import ssl
 from pathlib import Path
 import zipfile
 
@@ -14,6 +15,9 @@ def package_release(app_dir, output_dir):
     if notes.get("version") != version or not notes.get("items"):
         raise RuntimeError("Package VERSION and release notes must match")
     compile((internal / "main.py").read_bytes(), "main.py", "exec")
+    ssl_policy = Path(ssl.__file__).with_name("codex-rejected-cas.pem")
+    if ssl_policy.is_file() and (internal / "python312.dll").is_file() and not (internal / ssl_policy.name).is_file():
+        raise RuntimeError("Missing SSL runtime certificate policy data")
     manifest = (app / "uninstall-files.txt").read_text(encoding="utf-8-sig").splitlines()
     for name in ["三千思创无线画布.exe", "uninstall.exe", "_internal/main.py", "_internal/VERSION", "_internal/static/index.html"]:
         if name.replace("/", "\\") not in manifest and name not in manifest:

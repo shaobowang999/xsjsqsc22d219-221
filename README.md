@@ -13,7 +13,7 @@
 
 包含视频生成参数修复：`flux-3-video` 使用 `hd/fhd` 分辨率，兼容旧节点的 `480p/720p/1080p`；通用接口提交明确的画幅及 `size` 参数，避免上游解析成不支持的 `auto`。
 
-**[下载 Windows 2026.10.22 完整桌面包（含 SQSC 图标和卸载程序）](https://github.com/shaobowang999/xsjsqsc22d219-221/releases/download/v2026.10.22/三千思创无线画布-2026.10.22-win-x64-with-uninstall.zip)**
+**[下载 Windows 2026.10.22 完整桌面包（含 SQSC 图标和卸载程序）](https://github.com/shaobowang999/xsjsqsc22d219-221/releases/download/v2026.10.22/-2026.10.22-win-x64-with-uninstall.zip)**
 
 下载后完整解压，双击 `三千思创无线画布.exe` 启动。卸载时关闭画布，运行同目录的 `uninstall.exe` 并确认；用户数据和 API 配置会保留。
 
