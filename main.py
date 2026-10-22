@@ -162,13 +162,15 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 GLOBAL_LOOP = None
-APP_VERSION = "2026.06.03"
+APP_VERSION = "2026.10.22"
 APP_NAME = "三千思创"
 GITHUB_REPO_URL = "https://github.com/shaobowang999/xsjsqsc22d219-221"
-GITHUB_VERSION_URL = "https://raw.githubusercontent.com/shaobowang999/xsjsqsc22d219-221/main/VERSION"
+GITHUB_CONTENTS_ROOT = "https://api.github.com/repos/shaobowang999/xsjsqsc22d219-221/contents"
+GITHUB_VERSION_URL = GITHUB_CONTENTS_ROOT + "/VERSION?ref=main"
+GITHUB_ARCHIVE_URL = "https://codeload.github.com/shaobowang999/xsjsqsc22d219-221/zip/refs/heads/main"
 GITHUB_TREE_URL = "https://api.github.com/repos/shaobowang999/xsjsqsc22d219-221/git/trees/main?recursive=1"
 GITHUB_RAW_ROOT = "https://raw.githubusercontent.com/shaobowang999/xsjsqsc22d219-221/main"
-GITHUB_UPDATE_NOTES_URL = GITHUB_RAW_ROOT + "/static/update-notes.json"
+GITHUB_UPDATE_NOTES_URL = GITHUB_CONTENTS_ROOT + "/static/update-notes.json?ref=main"
 MODELSCOPE_REPO_URL = "https://modelscope.ai/studios/daniel8152/Infinite-Canvas"
 MODELSCOPE_RAW_ROOT = "https://www.modelscope.ai/studios/daniel8152/Infinite-Canvas/raw/main"
 # ModelScope 仓库默认分支为 master；raw 网页路径会返回 HTML，必须用仓库文件 API 才能拿到纯文本
@@ -1613,7 +1615,7 @@ def current_app_version():
     except Exception:
         pass
     try:
-        return time.strftime("%Y.%m.%d", time.localtime())
+        return APP_VERSION
     except Exception:
         return ""
 
@@ -1674,13 +1676,16 @@ def fetch_remote_update_notes(url: str, version: str = "", timeout: float = 5.0)
     try:
         resp = requests.get(
             f"{url}{'&' if '?' in url else '?'}t={int(time.time())}",
-            headers={"User-Agent": "Infinite-Canvas-Updater"},
+            headers={"User-Agent": "Infinite-Canvas-Updater", "Accept": "application/vnd.github.raw+json"},
             timeout=timeout,
             proxies=urllib.request.getproxies() or None,
         )
         if 200 <= resp.status_code < 400:
             payload = json.loads(resp.content.decode("utf-8", errors="replace"))
             notes = safe_update_notes(payload, version)
+            if version and notes.get("version") != version:
+                info["error"] = "更新说明与目标版本不一致"
+                return info
             info.update(notes)
             info["ok"] = True
         else:
@@ -1692,10 +1697,10 @@ def fetch_remote_update_notes(url: str, version: str = "", timeout: float = 5.0)
 def fetch_update_notes_with_fallback(preferred_source: str, version: str, timeout: float = 3.0) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     urls = {
         "github": GITHUB_UPDATE_NOTES_URL,
-        "modelscope": MODELSCOPE_UPDATE_NOTES_URL,
+        "github_archive": GITHUB_UPDATE_NOTES_URL,
     }
     preferred = preferred_source if preferred_source in urls else "github"
-    order = [preferred, "modelscope" if preferred == "github" else "github"]
+    order = [preferred]
     notes_by_source: Dict[str, Any] = {}
     best_notes: Dict[str, Any] = {"version": version, "items": []}
     for source in order:
@@ -1900,12 +1905,12 @@ def app_info():
                 "tree_url": GITHUB_TREE_URL,
                 "update_notes_url": GITHUB_UPDATE_NOTES_URL,
             },
-            "modelscope": {
-                "label": "ModelScope",
-                "repo_url": MODELSCOPE_REPO_URL,
-                "version_url": MODELSCOPE_VERSION_URL,
-                "tree_url": MODELSCOPE_TREE_URL,
-                "update_notes_url": MODELSCOPE_UPDATE_NOTES_URL,
+            "github_archive": {
+                "label": "GitHub 源码包",
+                "repo_url": GITHUB_REPO_URL,
+                "version_url": GITHUB_VERSION_URL,
+                "archive_url": GITHUB_ARCHIVE_URL,
+                "update_notes_url": GITHUB_UPDATE_NOTES_URL,
             },
         },
         "update_notes": read_local_update_notes(version),
@@ -1949,9 +1954,8 @@ def update_connectivity_targets() -> List[Tuple[str, str, str, bool]]:
         ("GitHub 更新列表", GITHUB_TREE_URL, "github", True),
         ("GitHub 版本文件", GITHUB_VERSION_URL, "github", True),
         ("GitHub 主页", "https://github.com/", "github", False),
-        ("ModelScope 版本文件", MODELSCOPE_VERSION_URL, "modelscope", True),
-        ("ModelScope 空间页面", MODELSCOPE_REPO_URL, "modelscope", False),
-        ("ModelScope 主页", "https://modelscope.cn/", "modelscope", False),
+        ("GitHub 备用版本文件", GITHUB_VERSION_URL, "github_archive", True),
+        ("GitHub 源码包", GITHUB_ARCHIVE_URL, "github_archive", True),
         ("Google 连通性", "https://www.google.com/generate_204", "reference", False),
     ]
 
@@ -1976,7 +1980,7 @@ def update_connectivity():
         item["required"] = required
         results.append(item)
     sources = {}
-    for source in ("github", "modelscope"):
+    for source in ("github", "github_archive"):
         source_required = [item for item in results if item.get("source") == source and item.get("required")]
         sources[source] = {
             "ok": all(item["ok"] for item in source_required),
@@ -1987,7 +1991,7 @@ def update_connectivity():
         "results": results,
         "sources": sources,
         "required": sources["github"]["required"],
-        "optional": ["GitHub 主页", "ModelScope 空间页面", "ModelScope 主页", "Google 连通性"],
+        "optional": ["GitHub 主页", "Google 连通性"],
     }
 
 def fetch_remote_version(url: str, timeout: float = 5.0) -> Dict[str, Any]:
@@ -1998,7 +2002,7 @@ def fetch_remote_version(url: str, timeout: float = 5.0) -> Dict[str, Any]:
     try:
         resp = requests.get(
             f"{url}{'&' if '?' in url else '?'}t={int(time.time())}",
-            headers={"User-Agent": "Infinite-Canvas-Updater"},
+            headers={"User-Agent": "Infinite-Canvas-Updater", "Accept": "application/vnd.github.raw+json"},
             timeout=timeout,
             proxies=urllib.request.getproxies() or None,
         )
@@ -2020,6 +2024,11 @@ def fetch_remote_version(url: str, timeout: float = 5.0) -> Dict[str, Any]:
     return info
 
 def version_tuple(value: str) -> List[int]:
+    # Older company packages used MM.DD; compare them on the same date scale
+    # as YYYY.MM.DD builds rather than treating every 2026 build as newer.
+    legacy = re.fullmatch(r"(\d{1,2})\.(\d{1,2})", str(value or "").strip())
+    if legacy:
+        return [2026, int(legacy.group(1)), int(legacy.group(2))]
     return [int(x) for x in re.findall(r"\d+", str(value or ""))]
 
 def version_gt(a: str, b: str) -> bool:
@@ -2031,9 +2040,9 @@ def version_gt(a: str, b: str) -> bool:
 
 @app.get("/api/check-update")
 def check_update():
-    """服务端检测 GitHub 与 ModelScope 两个源的远端版本（走系统代理，避免浏览器跨域/被墙）。"""
+    """Only company releases may advertise updates; upstream is reference-only."""
     current = current_app_version()
-    # 并发检测两个源，避免串行 8s+8s 拖慢首屏更新提示
+    # Both download methods share the same company VERSION file.
     holder: Dict[str, Dict[str, Any]] = {}
     def _probe(key: str, url: str):
         item = fetch_remote_version(url, timeout=5.0)
@@ -2041,16 +2050,15 @@ def check_update():
         holder[key] = item
     threads = [
         Thread(target=_probe, args=("github", GITHUB_VERSION_URL), daemon=True),
-        Thread(target=_probe, args=("modelscope", MODELSCOPE_VERSION_URL), daemon=True),
     ]
     for t in threads:
         t.start()
     for t in threads:
         t.join(timeout=5.5)
     github = holder.get("github") or {"version": "", "ok": False, "error": "检测超时（超过 5s）", "url": GITHUB_VERSION_URL, "source": "github"}
-    modelscope = holder.get("modelscope") or {"version": "", "ok": False, "error": "检测超时（超过 5s）", "url": MODELSCOPE_VERSION_URL, "source": "modelscope"}
+    archive = dict(github, source="github_archive")
     best: Dict[str, Any] = {}
-    for item in (github, modelscope):
+    for item in (github,):
         if item["ok"] and item["version"]:
             if not best or version_gt(item["version"], best["version"]):
                 best = {"source": item["source"], "version": item["version"]}
@@ -2062,12 +2070,12 @@ def check_update():
     return {
         "current": current,
         "github": github,
-        "modelscope": modelscope,
+        "github_archive": archive,
         "latest": best,
         "update_notes": best.get("update_notes") if best else {},
         "update_notes_sources": notes_by_source,
         "update_available": update_available,
-        "reachable": bool(github["ok"] or modelscope["ok"]),
+        "reachable": bool(github["ok"]),
     }
 
 def update_allowed_file(path: str) -> bool:
@@ -2324,20 +2332,29 @@ def staged_update_file_list(staging_root: str) -> Tuple[List[str], List[str], Li
     static_files = sorted(set(static_files))
     return root_files, static_files, root_files + static_files
 
-UPDATE_SOURCE_LABELS = {"github": "GitHub", "modelscope": "ModelScope"}
+UPDATE_SOURCE_LABELS = {"github": "GitHub", "github_archive": "GitHub 源码包"}
 
 def normalize_update_source(value: str) -> str:
     source = str(value or "github").strip().lower()
-    if source == "ms":
-        return "modelscope"
-    if source not in {"github", "modelscope"}:
+    if source not in {"github", "github_archive"}:
         return "github"
     return source
 
 def stage_update_from_source(source: str, staging_root: str) -> Tuple[List[str], List[str], List[str]]:
     """下载指定源的更新文件到 staging，返回 (root_files, static_files, files)。失败抛异常。"""
-    if source == "modelscope":
-        download_modelscope_update_files(staging_root)
+    if source == "github_archive":
+        with zipfile.ZipFile(BytesIO(github_bytes(GITHUB_ARCHIVE_URL))) as archive:
+            for info in archive.infolist():
+                if info.is_dir() or "/" not in info.filename:
+                    continue
+                rel = info.filename.split("/", 1)[1]
+                if not update_allowed_file(rel):
+                    continue
+                safe_update_target(rel)
+                target = os.path.join(staging_root, *rel.split("/"))
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                with open(target, "wb") as output:
+                    output.write(archive.read(info))
         return staged_update_file_list(staging_root)
     root_files, static_files, files = github_update_file_list()
     download_github_update_files(files, staging_root)
@@ -2355,6 +2372,13 @@ def validate_staged_update(staging_root: str, root_files: List[str], static_file
         version = (f.read().strip().splitlines() or [""])[0].strip()
     if not version or len(version) > 80 or any(ch in version for ch in "<>\\r\\n"):
         raise RuntimeError("更新暂存的 VERSION 格式异常")
+    if version_gt(current_app_version(), version):
+        raise RuntimeError(f"更新源版本 {version} 早于当前版本 {current_app_version()}，已取消更新")
+    notes_path = os.path.join(staging_root, "static", "update-notes.json")
+    with open(notes_path, "r", encoding="utf-8") as notes_file:
+        notes = json.load(notes_file)
+    if str(notes.get("version") or "").strip() != version:
+        raise RuntimeError("更新日志与 VERSION 不一致，已取消更新")
     for rel in list(root_files or []) + list(static_files or []):
         safe_update_target(rel)
         staged_path = os.path.join(staging_root, *str(rel).replace("\\", "/").split("/"))
@@ -2496,10 +2520,10 @@ def update_from_github(req: UpdateRequest = UpdateRequest()):
         raise HTTPException(status_code=409, detail="正在更新中，请稍后再试")
     staging_root = ""
     requested_source = normalize_update_source(req.source)
-    # 冗余设计：先用用户选择的源，失败后自动切换到另一个源兜底，全部失败才报错
+    # Retry with another download method for the same company repository.
     source_order = [requested_source]
     if req.fallback:
-        other = "modelscope" if requested_source == "github" else "github"
+        other = "github_archive" if requested_source == "github" else "github"
         source_order.append(other)
     try:
         backup_root = ""

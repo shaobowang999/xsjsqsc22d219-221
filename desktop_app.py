@@ -1,5 +1,7 @@
 """三千思创无线画布 Windows 桌面入口。"""
 
+import importlib.util
+import json
 import os
 import socket
 import sys
@@ -14,7 +16,8 @@ import webview
 
 APP_TITLE = "三千思创无线画布"
 HOST = "127.0.0.1"
-PORT = 3000
+# An isolated port also allows release checks while the user's canvas stays open.
+PORT = int(os.getenv("SQSC_PORT", "3000"))
 APP_URL = f"http://{HOST}:{PORT}/"
 
 
@@ -64,7 +67,26 @@ def wait_until_ready(timeout: float = 30.0) -> None:
                     return
         except Exception:
             time.sleep(0.15)
-    raise RuntimeError("服务启动超时，请检查 3000 端口是否被其他程序占用。")
+    raise RuntimeError(f"服务启动超时，请检查 {PORT} 端口是否被其他程序占用。")
+
+
+def select_server_port() -> None:
+    """Reuse this release only; an older open canvas must not mask a new app."""
+    global PORT, APP_URL
+    if not port_is_open():
+        return
+    expected = (application_dir() / "VERSION").read_text(encoding="utf-8").strip()
+    try:
+        with urllib.request.urlopen(APP_URL + "api/app-info", timeout=2) as response:
+            info = json.load(response)
+        if info.get("version") == expected and info.get("name") == "三千思创":
+            return
+    except Exception:
+        pass
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as candidate:
+        candidate.bind((HOST, 0))
+        PORT = candidate.getsockname()[1]
+    APP_URL = f"http://{HOST}:{PORT}/"
 
 
 class DesktopRuntime:
@@ -77,13 +99,23 @@ class DesktopRuntime:
         if port_is_open():
             return
 
-        from main import app
+        # Load the updatable source explicitly. A frozen import can otherwise
+        # prefer an old main module embedded in the EXE over _internal/main.py.
+        source = application_dir() / "main.py"
+        spec = importlib.util.spec_from_file_location("main", source)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("无法加载画布服务源码")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["main"] = module
+        spec.loader.exec_module(module)
+        app = module.app
 
         config = uvicorn.Config(
             app,
             host=HOST,
             port=PORT,
             log_level="warning",
+            log_config=None,
             ws_ping_interval=None,
             ws_ping_timeout=None,
         )
@@ -104,6 +136,7 @@ def main() -> int:
     os.chdir(app_dir)
     sys.path.insert(0, str(app_dir))
     configure_storage(app_dir)
+    select_server_port()
 
     runtime = DesktopRuntime()
     try:

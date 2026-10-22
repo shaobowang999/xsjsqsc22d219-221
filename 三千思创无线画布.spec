@@ -10,7 +10,8 @@ datas = [
     ("workflows", "workflows"),
 ]
 binaries = []
-hiddenimports = []
+# Analyze backend dependencies even though the launcher loads its source at runtime.
+hiddenimports = ["main"]
 
 for package in ("webview", "uvicorn", "fastapi", "starlette"):
     package_datas, package_binaries, package_hiddenimports = collect_all(package)
