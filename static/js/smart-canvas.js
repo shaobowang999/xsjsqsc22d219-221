@@ -2695,8 +2695,15 @@ function renderVideoAspectControl(){
         </div>
     </div>`;
 }
+function normalizeFluxVideoResolution(model, value){
+    if(!/(^|\/)flux-3-video(?:-|$)/i.test(String(model || '').trim())) return value || '';
+    return ['1080p', 'fhd'].includes(String(value || '').trim().toLowerCase()) ? 'fhd' : 'hd';
+}
 function renderVideoResolutionControl(){
-    const options = [['', tr('smart.videoResAuto')], ['480p','480P'], ['720p','720P'], ['1080p','1080P']];
+    const isFlux = /(^|\/)flux-3-video(?:-|$)/i.test(String(settings.videoModel || '').trim());
+    if(!isFlux && ['hd','fhd'].includes(settings.videoResolution)) settings.videoResolution = settings.videoResolution === 'fhd' ? '1080p' : '720p';
+    settings.videoResolution = normalizeFluxVideoResolution(settings.videoModel, settings.videoResolution);
+    const options = isFlux ? [['hd','HD (720P)'], ['fhd','FHD (1080P)']] : [['', tr('smart.videoResAuto')], ['480p','480P'], ['720p','720P'], ['1080p','1080P']];
     const value = settings.videoResolution || '';
     const labelMap = Object.fromEntries(options);
     return `<div class="smart-control resolution-control">

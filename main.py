@@ -15518,8 +15518,31 @@ def volcengine_video_prompt_text(prompt, aspect_ratio="", duration=None):
     suffix_text = " ".join(suffixes)
     return f"{text} {suffix_text}".strip() if text else suffix_text
 
+def is_flux3_video_model(model):
+    name = str(model or "").strip().lower().rsplit("/", 1)[-1]
+    return name == "flux-3-video" or name.startswith("flux-3-video-")
+
+
+def flux3_video_resolution(value):
+    # Flux uses quality names rather than the pixel labels stored by older canvases.
+    requested = str(value or "").strip().lower()
+    aliases = {"": "hd", "auto": "hd", "480p": "hd", "720p": "hd", "780p": "hd", "1080p": "fhd", "hd": "hd", "fhd": "fhd"}
+    if requested not in aliases:
+        raise HTTPException(status_code=400, detail="flux-3-video 仅支持 HD (720P) 或 FHD (1080P)，请修改视频分辨率。")
+    return aliases[requested]
+
+
+def generic_video_aspect_ratio(value):
+    ratio = str(value or "").strip()
+    # Generic adapters may default an omitted ratio to `auto`, which many upstream
+    # enum schemas reject. Native provider adapters retain their own ratio rules.
+    return "16:9" if ratio.lower() in {"", "auto", "adaptive", "keep_ratio"} else ratio
+
+
 @app.post("/api/canvas-video")
 async def canvas_video(payload: CanvasVideoRequest):
+    if is_flux3_video_model(payload.model):
+        payload = payload.model_copy(update={"resolution": flux3_video_resolution(payload.resolution)})
     provider = get_api_provider(payload.provider_id)
     if is_jimeng_provider(provider):
         return await generate_jimeng_video(payload, provider)
@@ -15858,11 +15881,13 @@ async def canvas_video(payload: CanvasVideoRequest):
                         "duration": payload.duration,
                         "watermark": payload.watermark,
                     }
-                    if payload.aspect_ratio:
-                        body["aspect_ratio"] = payload.aspect_ratio
-                        body["ratio"] = payload.aspect_ratio
-                    if payload.size:
-                        body["size"] = payload.size
+                    ratio = generic_video_aspect_ratio(payload.aspect_ratio)
+                    body["aspect_ratio"] = ratio
+                    body["ratio"] = ratio
+                    # Some compatible gateways read the ratio from `size` and
+                    # silently use `auto` if only aspect_ratio/ratio is supplied.
+                    size = str(payload.size or "").strip()
+                    body["size"] = ratio if size.lower() in {"", "auto", "adaptive", "keep_ratio"} else size
                     if payload.resolution:
                         body["resolution"] = payload.resolution
                     if image_payload:

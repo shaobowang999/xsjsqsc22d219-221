@@ -8706,6 +8706,10 @@ function renderMidjourneyBody(node){
     bindCascadeButtons(wrap, node.id);
     return wrap;
 }
+function normalizeFluxVideoResolution(model, value){
+    if(!/(^|\/)flux-3-video(?:-|$)/i.test(String(model || '').trim())) return value || '';
+    return ['1080p', 'fhd'].includes(String(value || '').trim().toLowerCase()) ? 'fhd' : 'hd';
+}
 function renderVideoBody(node){
     const wrap = document.createElement('div');
     wrap.className = 'generator-body';
@@ -8715,6 +8719,7 @@ function renderVideoBody(node){
     const promptInputs = ordered.filter(src => src.prompt && !src.refs?.length);
     sanitizeVideoNodeProviderModel(node);
     node.model = node.model || 'veo3-fast';
+    node.resolution = normalizeFluxVideoResolution(node.model, node.resolution);
     wrap.innerHTML = `
         <div class="prompt-list mb-3"></div>
         <div class="video-input-head">
@@ -8784,7 +8789,15 @@ function renderVideoBody(node){
     providerSelect.value = node.apiProvider;
     durationSelect.value = String(node.duration || 5);
     aspectSelect.value = node.aspectRatio || '16:9';
-    resolutionSelect.value = node.resolution || '';
+    const updateResolutionOptions = () => {
+        const isFlux = /(^|\/)flux-3-video(?:-|$)/i.test(String(node.model || '').trim());
+        const options = isFlux ? [['hd','HD (720P)'], ['fhd','FHD (1080P)']] : [['','Auto'], ['480p','480p'], ['720p','720p'], ['1080p','1080p'], ['780P','780P']];
+        if(!isFlux && ['hd','fhd'].includes(node.resolution)) node.resolution = node.resolution === 'fhd' ? '1080p' : '720p';
+        node.resolution = normalizeFluxVideoResolution(node.model, node.resolution);
+        resolutionSelect.innerHTML = options.map(([value,label]) => `<option value="${value}">${label}</option>`).join('');
+        resolutionSelect.value = node.resolution || '';
+    };
+    updateResolutionOptions();
     [providerSelect, modelSelect, durationSelect, aspectSelect, resolutionSelect].forEach(input => {
         input.onmousedown = e => e.stopPropagation();
         input.onclick = e => e.stopPropagation();
@@ -8795,9 +8808,10 @@ function renderVideoBody(node){
         const models = providerVideoModels(node.apiProvider);
         if(!models.includes(node.model)) node.model = models[0] || node.model;
         modelSelect.innerHTML = videoModelOptions(node.model, node.apiProvider);
+        updateResolutionOptions();
         scheduleSave();
     };
-    modelSelect.onchange = e => { e.stopPropagation(); node.model = e.target.value; scheduleSave(); };
+    modelSelect.onchange = e => { e.stopPropagation(); node.model = e.target.value; updateResolutionOptions(); scheduleSave(); };
     durationSelect.oninput = e => { e.stopPropagation(); node.duration = Math.max(1, Math.min(60, Number(e.target.value || 5))); scheduleSave(); };
     durationSelect.onblur = e => { e.target.value = String(Math.max(1, Math.min(60, Number(node.duration || 5)))); };
     aspectSelect.onchange = e => { e.stopPropagation(); node.aspectRatio = e.target.value; scheduleSave(); };

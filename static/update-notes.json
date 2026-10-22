@@ -1,7 +1,15 @@
 {
-  "version": "10.21",
-  "updated_at": "2026-10-21T00:00:00+08:00",
+  "version": "10.22",
+  "updated_at": "2026-10-22T00:00:00+08:00",
   "items": [
+    {
+      "type": "fix",
+      "text": "修复视频生成节点调用 flux-3-video 时分辨率不兼容：使用 HD/FHD 选项，并自动转换旧节点中的 480P、720P 和 1080P 参数。"
+    },
+    {
+      "type": "fix",
+      "text": "修复通用视频接口的自动画幅参数及 size 字段缺省问题，避免上游将画幅解析成不支持的 auto。"
+    },
     {
       "type": "improvement",
       "text": "桌面版和源码版统一更新为 10.21，仓库首页提供 Windows 完整压缩包下载入口。"
@@ -12,6 +20,14 @@
     }
   ],
   "history": [
+    {
+      "version": "10.21",
+      "updated_at": "2026-10-21T00:00:00+08:00",
+      "items": [
+        {"type": "improvement", "text": "桌面版和源码版统一更新为 10.21，仓库首页提供 Windows 完整压缩包下载入口。"},
+        {"type": "improvement", "text": "桌面发行包保留 SQSC 程序图标和 uninstall.exe；确认卸载后清理程序文件，保留用户数据和 API 配置。"}
+      ]
+    },
     {
       "version": "2026.10.01.1",
       "updated_at": "2026-10-01T00:00:00+08:00",
