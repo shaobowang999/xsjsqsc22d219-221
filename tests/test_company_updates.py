@@ -57,7 +57,7 @@ class CompanyUpdateTests(unittest.TestCase):
     def test_app_info_exposes_only_company_sources_and_current_notes(self):
         result = main.app_info()
         self.assertEqual(set(result["sources"]), {"github", "github_archive"})
-        self.assertEqual(result["version"], "2026.10.22")
+        self.assertEqual(result["version"], "2026.10.28")
         self.assertEqual(result["update_notes"]["version"], result["version"])
         for source in result["sources"].values():
             self.assertIn("shaobowang999/xsjsqsc22d219-221", source["repo_url"])
@@ -78,7 +78,7 @@ class CompanyUpdateTests(unittest.TestCase):
             main.validate_staged_update(str(root), ["main.py", "VERSION"], ["static/update-notes.json"])
 
     def test_mismatched_release_notes_block_installation(self):
-        root = self.staged_files("2026.10.22", "2026.08.28")
+        root = self.staged_files(main.current_app_version(), "2026.08.28")
         with self.assertRaisesRegex(RuntimeError, "日志与 VERSION 不一致"):
             main.validate_staged_update(str(root), ["main.py", "VERSION"], ["static/update-notes.json"])
 

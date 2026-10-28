@@ -162,7 +162,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 GLOBAL_LOOP = None
-APP_VERSION = "2026.10.22"
+APP_VERSION = "2026.10.28"
 APP_NAME = "三千思创"
 GITHUB_REPO_URL = "https://github.com/shaobowang999/xsjsqsc22d219-221"
 GITHUB_CONTENTS_ROOT = "https://api.github.com/repos/shaobowang999/xsjsqsc22d219-221/contents"
@@ -11772,7 +11772,7 @@ def download_output(request: Request, url: str, name: str = "", inline: bool = F
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise HTTPException(status_code=400, detail="无效的下载地址")
     try:
-        upstream_headers = {"User-Agent": "ComfyUI-API-Modelscope/1.0"}
+        upstream_headers = {"User-Agent": "ComfyUI-API-Modelscope/1.0", "Accept-Encoding": "identity"}
         range_header = request.headers.get("range")
         if range_header:
             upstream_headers["Range"] = range_header
@@ -11788,6 +11788,8 @@ def download_output(request: Request, url: str, name: str = "", inline: bool = F
     filename = sanitize_export_filename(os.path.basename(name) if name else fallback, fallback)
     disposition = "inline" if inline else "attachment"
     headers = {"Content-Disposition": f"{disposition}; filename*=UTF-8''{urllib.parse.quote(filename)}"}
+    if upstream.headers.get("content-length") and upstream.headers.get("content-encoding", "identity") == "identity":
+        headers["Content-Length"] = upstream.headers["content-length"]
     for key in ("content-range", "accept-ranges"):
         value = upstream.headers.get(key)
         if value:

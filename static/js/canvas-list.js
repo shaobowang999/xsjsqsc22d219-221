@@ -582,8 +582,11 @@ function openCreateCard(worldPt){
     createKind = 'classic';
     const el = document.createElement('div');
     el.className = 'ws-create-card';
-    el.style.left = worldPt.x + 'px';
-    el.style.top = worldPt.y + 'px';
+    el.style.left = '16px';
+    el.style.top = '16px';
+    el.tabIndex = -1;
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-label', L('新建画布','New canvas'));
     el.innerHTML = `
         <div class="ws-create-title">${L('新建画布','New canvas')}</div>
         <input class="ws-create-input" type="text" maxlength="80" placeholder="${L('画布名称（可留空）','Canvas name (optional)')}">
@@ -595,9 +598,25 @@ function openCreateCard(worldPt){
             <button class="ws-create-confirm" type="button">${L('创建','Create')}</button>
             <button class="ws-create-cancel" type="button">${L('取消','Cancel')}</button>
         </div>`;
-    boardWorld.appendChild(el);
+    board.appendChild(el);
     createCardEl = el;
-    el.addEventListener('mousedown', e => e.stopPropagation());
+    el.addEventListener('mousedown', e => {
+        e.stopPropagation();
+        if(e.button !== 0 || e.target.closest('input,button,select,textarea')) return;
+        e.preventDefault();
+        el.focus();
+        const sx = e.clientX, sy = e.clientY, left = el.offsetLeft, top = el.offsetTop;
+        const move = event => {
+            el.style.left = Math.max(0, Math.min(board.clientWidth - el.offsetWidth, left + event.clientX - sx)) + 'px';
+            el.style.top = Math.max(0, Math.min(board.clientHeight - el.offsetHeight, top + event.clientY - sy)) + 'px';
+        };
+        const up = () => {
+            window.removeEventListener('mousemove', move);
+            window.removeEventListener('mouseup', up);
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up, {once:true});
+    });
     const input = el.querySelector('.ws-create-input');
     input.focus();
     el.querySelectorAll('.ws-create-toggle-btn').forEach(btn => {

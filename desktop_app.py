@@ -1,6 +1,7 @@
 """三千思创无线画布 Windows 桌面入口。"""
 
 import importlib.util
+import base64
 import json
 import os
 import socket
@@ -131,6 +132,48 @@ class DesktopRuntime:
                 self.thread.join(timeout=5)
 
 
+class DesktopFiles:
+    """Save completed canvas downloads without relying on WebView navigation."""
+
+    def save_download(self, encoded: str, filename: str, save_as: bool = False):
+        try:
+            filename = Path(filename.replace('\\', '/')).name
+            filename = ''.join('_' if c in '<>:"/\\|?*' or ord(c) < 32 else c for c in filename).strip('. ') or 'image.png'
+            folder = Path.home() / 'Downloads'
+            if sys.platform == 'win32':
+                import winreg
+                try:
+                    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders') as key:
+                        folder = Path(os.path.expandvars(winreg.QueryValueEx(key, '{374DE290-123F-4565-9164-39C4925E467B}')[0]))
+                except OSError:
+                    pass
+            if save_as:
+                selected = webview.windows[0].create_file_dialog(
+                    webview.FileDialog.SAVE, directory=str(folder), save_filename=filename,
+                )
+                if not selected:
+                    return {"cancelled": True}
+                path = Path(selected if isinstance(selected, str) else selected[0])
+                mode = 'wb'  # The native Save dialog confirms replacement.
+            else:
+                folder.mkdir(parents=True, exist_ok=True)
+                path = folder / filename
+                mode = 'xb'
+            data = base64.b64decode(encoded, validate=True)
+            index = 0
+            while True:
+                try:
+                    with path.open(mode) as output:
+                        output.write(data)
+                    break
+                except FileExistsError:
+                    index += 1
+                    path = folder / f'{Path(filename).stem} ({index}){Path(filename).suffix}'
+            return {"ok": True, "path": str(path)}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+
 def main() -> int:
     app_dir = application_dir()
     os.chdir(app_dir)
@@ -149,6 +192,7 @@ def main() -> int:
             height=900,
             min_size=(1024, 700),
             text_select=True,
+            js_api=DesktopFiles(),
         )
         window.events.closed += runtime.stop_server
         webview.start(debug=False, private_mode=False)

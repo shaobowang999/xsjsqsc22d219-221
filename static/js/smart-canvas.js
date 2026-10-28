@@ -783,14 +783,7 @@ async function responseErrorMessage(response, fallback='请求失败'){
     }
 }
 function downloadBlob(blob, filename){
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename || 'smart-canvas-workflow.json';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 800);
+    return StudioDownload.saveBlob(blob, filename || 'smart-canvas-workflow.json');
 }
 function smartWorkflowFilename(ext='json'){
     const title = (canvas?.title || document.getElementById('smartTitle')?.textContent || 'smart-canvas').trim();
@@ -6329,6 +6322,12 @@ function pasteAssetsFromInbox(){
 }
 function duplicateForAltDrag(node, preserveConnections=false){
     const ids = (isNodeSelected(node.id) ? selectedNodeIds() : [node.id]);
+    ids.slice().forEach(id => {
+        const group = nodes.find(n => n.id === id);
+        if(isSmartGroupNode(group)) smartGroupMembers(group).forEach(member => {
+            if(!ids.includes(member.id)) ids.push(member.id);
+        });
+    });
     const sourceNodes = ids.map(id => nodes.find(n => n.id === id)).filter(Boolean);
     if(!sourceNodes.length) return node;
     pushUndo();
@@ -6339,6 +6338,7 @@ function duplicateForAltDrag(node, preserveConnections=false){
         return copy;
     });
     copies.forEach(copy => {
+        if(isSmartGroupNode(copy)) copy.items = (copy.items || []).map(id => idMap.get(id)).filter(Boolean);
         if(Array.isArray(copy.inputNodeIds)){
             copy.inputNodeIds = preserveConnections
                 ? copy.inputNodeIds.map(id => idMap.get(id) || id).filter(Boolean)
@@ -6365,8 +6365,8 @@ function duplicateForAltDrag(node, preserveConnections=false){
         canvas.connections = nextConnections;
     }
     nodes.push(...copies);
-    selectedId = '';
-    selectedIds = [];
+    selectedId = copies.length === 1 ? copies[0].id : '';
+    selectedIds = copies.map(copy => copy.id);
     selectedImage = {nodeId:'', index:-1};
     const dragCopy = copies.find(c => c.id === idMap.get(node.id)) || copies[0];
     render();
@@ -6943,22 +6943,12 @@ function downloadPreviewImage(){
     const image = node?.images?.[previewNavState.index];
     if(!image?.url) return;
     const name = downloadNameForMediaItem(image, 'image');
-    const link = document.createElement('a');
-    link.href = `/api/download-output?url=${encodeURIComponent(image.url)}&name=${encodeURIComponent(name)}`;
-    link.download = name;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    return StudioDownload.save(image.url, name);
 }
 function downloadPreviewFile(item){
     if(!item?.url) return;
     const name = downloadNameForMediaItem(item, 'output');
-    const link = document.createElement('a');
-    link.href = `/api/download-output?url=${encodeURIComponent(item.url)}&name=${encodeURIComponent(name)}`;
-    link.download = name;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    return StudioDownload.save(item.url, name);
 }
 function previewDownloadGroupItems(){
     // 分组预览：整组所有成员图片按阅读顺序打包。
@@ -6996,14 +6986,7 @@ async function zipDownloadImageItems(title, items){
         });
         if(!response.ok) throw new Error((await response.text()) || '批量下载失败');
         const blob = await response.blob();
-        const href = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = href;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(href), 1200);
+        await StudioDownload.saveBlob(blob, filename);
     } catch(e) {
         toast((e.message || '批量下载失败').slice(0, 160));
     }
@@ -9902,14 +9885,16 @@ function bindNodeEvents(){
             capturePendingUndo();
         });
         const beginNodeDrag = e => {
-            if(e.button !== 0 || e.target.closest('.mini-x, .smart-node-floating-menu, .node-resize-handle, .thumb-item, .node-port, .prompt-node-control, select, input, textarea, button')) return;
+            if(e.button !== 0 || e.target.closest('.mini-x, .smart-node-floating-menu, .node-resize-handle, .node-port, .prompt-node-control, select, input, textarea, button')) return;
+            if(!e.altKey && e.target.closest('.thumb-item')) return;
             if(e.target.closest('.prompt-node-pill, textarea:not(.prompt-node-text)')) return;
             e.preventDefault(); e.stopPropagation();
             window.getSelection?.()?.removeAllRanges?.();
             if(document.activeElement?.blur) document.activeElement.blur();
             let node = nodes.find(n => n.id === id);
             if(!node) return;
-            if(e.altKey) node = duplicateForAltDrag(node, e.shiftKey);
+            const copied = e.altKey;
+            if(copied) node = duplicateForAltDrag(node, e.shiftKey);
             let dragIds = selectedIds.includes(node.id) ? selectedIds.slice() : [node.id];
             if(isSmartGroupNode(node)){
                 const memberIds = smartGroupMembers(node).map(member => member.id);
@@ -9921,7 +9906,7 @@ function bindNodeEvents(){
             }).filter(Boolean);
             dragState = {id:node.id, startX:e.clientX, startY:e.clientY, ox:node.x || 0, oy:node.y || 0, group, groupIds:group.map(item => item.id), ctrlGroup:Boolean(e.ctrlKey)};
             document.body.classList.add('smart-node-drag');
-            capturePendingUndo();
+            if(!copied) capturePendingUndo();
         };
         el.querySelectorAll('.node-port').forEach(port => {
             port.addEventListener('mousedown', e => {
@@ -9946,6 +9931,9 @@ function bindNodeEvents(){
             port.addEventListener('dblclick', e => { e.stopPropagation(); });
         });
         el.onmousedown = beginNodeDrag;
+        el.addEventListener('mousedown', e => {
+            if(e.altKey && e.target.closest('.thumb-item,.smart-group-single-thumb')) beginNodeDrag(e);
+        }, true);
         el.ondragover = e => setSmartDropCopyEffect(e);
         el.ondrop = async e => {
             e.preventDefault();
@@ -17527,6 +17515,52 @@ shell.addEventListener('auxclick', e => {
         e.stopPropagation();
     }
 }, true);
+function openSmartImageMenu(event, nodeId, index){
+    const owner = nodes.find(n => n.id === nodeId);
+    const image = owner?.images?.[index];
+    if(!image?.url) return false;
+    event.preventDefault(); event.stopPropagation();
+    document.getElementById('smartImageContextMenu')?.remove();
+    const menu = document.createElement('div');
+    menu.id = 'smartImageContextMenu';
+    menu.className = 'create-menu';
+    menu.style.cssText = 'display:flex;flex-direction:column;gap:4px;width:160px;z-index:1000';
+    const actions = [
+        ['预览', () => openImagePreviewSmart(nodeId, index)],
+        ['保存', () => StudioDownload.save(image.url, downloadNameForMediaItem(image))],
+        ['另存为', () => StudioDownload.save(image.url, downloadNameForMediaItem(image), true)],
+        ['编辑', () => { openImageEditor(nodeId, index); setImageEditMode('crop'); }],
+        ['替换', () => {
+            const picker = document.createElement('input');
+            picker.type = 'file'; picker.accept = 'image/*';
+            picker.onchange = async () => {
+                if(!picker.files.length) return;
+                try {
+                    const files = await uploadFiles([...picker.files]);
+                    if(!files.length || !nodes.includes(owner) || owner.images[index] !== image) return;
+                    pushUndo(); owner.images[index] = files[0]; render(); scheduleSave();
+                } catch(error){ toast(error.message || '替换失败'); }
+            };
+            picker.click();
+        }],
+        ['删除', () => { if(confirm('确定删除这张图片？可按 Ctrl+Z 撤销。')) deleteImage(nodeId, index); }]
+    ];
+    actions.forEach(([title, action]) => {
+        const button = document.createElement('button');
+        button.textContent = title;
+        button.style.cssText = 'padding:9px;text-align:left;background:var(--panel);color:var(--text);border-radius:6px';
+        button.onclick = e => { e.stopPropagation(); menu.remove(); action(); };
+        menu.appendChild(button);
+    });
+    menu.onmousedown = e => e.stopPropagation();
+    document.body.appendChild(menu);
+    menu.style.left = Math.max(8, Math.min(event.clientX, innerWidth - menu.offsetWidth - 8)) + 'px';
+    menu.style.top = Math.max(8, Math.min(event.clientY, innerHeight - menu.offsetHeight - 8)) + 'px';
+    return true;
+}
+document.addEventListener('mousedown', event => {
+    if(!event.target.closest('#smartImageContextMenu')) document.getElementById('smartImageContextMenu')?.remove();
+});
 shell.oncontextmenu = e => {
     if((e.ctrlKey || e.metaKey) || isRKeyDown){
         e.preventDefault();
@@ -17537,6 +17571,11 @@ shell.oncontextmenu = e => {
     if(document.getElementById('imageEditModal')?.classList.contains('open')) return;
     e.preventDefault();
     e.stopPropagation();
+    const imageEl = e.target.closest('[data-image-index]');
+    const imageNodeEl = e.target.closest('.image-node');
+    const imageOwnerId = imageEl?.dataset.refNodeId || imageNodeEl?.dataset.id;
+    const imageIndex = Number(imageEl?.dataset.refImageIndex ?? imageEl?.dataset.imageIndex ?? 0);
+    if(imageOwnerId && openSmartImageMenu(e, imageOwnerId, imageIndex)) return;
     const groupEl = e.target.closest('.image-node.smart-group-node');
     if(groupEl?.dataset?.id){
         selectedId = groupEl.dataset.id;

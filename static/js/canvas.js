@@ -3337,12 +3337,25 @@ function openImageNodeMenu(nodeId, clientX, clientY){
     const canEdit = node.url && !isMissingAssetUrl(node.url) && kind === 'image';
     imageNodeMenu.innerHTML = `
         ${canPreview ? `<button class="menu-btn" data-image-preview="${escapeAttr(nodeId)}"><i data-lucide="eye" class="w-4 h-4"></i><span>预览</span></button>` : ''}
+        ${node.url ? `<button class="menu-btn" data-image-save><span>保存</span></button><button class="menu-btn" data-image-save-as><span>另存为</span></button>` : ''}
         ${canEdit ? `<button class="menu-btn" data-image-edit="${escapeAttr(nodeId)}"><i data-lucide="pencil" class="w-4 h-4"></i><span>编辑</span></button>` : ''}
         <button class="menu-btn" data-image-replace="${escapeAttr(nodeId)}"><i data-lucide="image-plus" class="w-4 h-4"></i><span>替换</span></button>
+        <button class="menu-btn" data-image-delete><span>删除</span></button>
     `;
     imageNodeMenu.style.left = `${clientX}px`;
     imageNodeMenu.style.top = `${clientY}px`;
     imageNodeMenu.classList.add('open');
+    for(const [selector, saveAs] of [['[data-image-save]', false], ['[data-image-save-as]', true]]){
+        const button = imageNodeMenu.querySelector(selector);
+        if(button) button.onclick = e => {
+            e.stopPropagation(); closeImageNodeMenu();
+            StudioDownload.save(canvasOriginalMediaUrl(node.url), node.name || outputDownloadName(node.url), saveAs);
+        };
+    }
+    imageNodeMenu.querySelector('[data-image-delete]').onclick = e => {
+        e.stopPropagation(); closeImageNodeMenu();
+        if(confirm('确定删除这张图片节点？可按 Ctrl+Z 撤销。')) deleteNode(nodeId);
+    };
     const previewBtn = imageNodeMenu.querySelector('[data-image-preview]');
     if(previewBtn){
         previewBtn.onclick = e => {
@@ -3372,6 +3385,50 @@ function openImageNodePreview(nodeId){
     const kind = mediaKindForNode(node);
     if(!['image','video'].includes(kind)) return;
     openOutputLightbox(node.url, node);
+}
+function openOutputImageMenu(node, url, clientX, clientY){
+    closeCreateMenu();
+    imageNodeMenu.classList.remove('output-node-menu');
+    imageNodeMenu.innerHTML = '';
+    const actions = [
+        ['预览', () => openOutputLightbox(url, node)],
+        ['保存', () => StudioDownload.save(canvasOriginalMediaUrl(url), outputDownloadName(url))],
+        ['另存为', () => StudioDownload.save(canvasOriginalMediaUrl(url), outputDownloadName(url), true)],
+        ['编辑', () => {
+            pushUndo();
+            const editable = {id:uid('img'), type:'image', x:node.x + (node.w || 320) + 40, y:node.y, url, name:outputImageName(url), mediaKind:'image'};
+            nodes.push(editable); render(); scheduleSave(); openImageEditor(editable.id);
+        }],
+        ['替换', () => {
+            const picker = document.createElement('input');
+            picker.type = 'file'; picker.accept = 'image/*';
+            picker.onchange = async () => {
+                const file = picker.files[0];
+                if(!file) return;
+                try {
+                    const replacement = await uploadCroppedBlob(file, file.name);
+                    if(!replacement?.url || !nodes.includes(node)) return;
+                    pushUndo();
+                    node.images = (node.images || []).map(item => outputUrlValue(item) === url ? replacement : item);
+                    render(); scheduleSave();
+                } catch(error){ showErrorModal(error.message || '替换失败'); }
+            };
+            picker.click();
+        }],
+        ['删除', () => {
+            if(!confirm('确定删除这张生成图片？可按 Ctrl+Z 撤销。')) return;
+            pushUndo(); node.images = (node.images || []).filter(item => outputUrlValue(item) !== url);
+            render(); scheduleSave();
+        }]
+    ];
+    actions.forEach(([title, action]) => {
+        const button = document.createElement('button'); button.className = 'menu-btn'; button.textContent = title;
+        button.onclick = e => { e.stopPropagation(); closeImageNodeMenu(); action(); };
+        imageNodeMenu.appendChild(button);
+    });
+    imageNodeMenu.classList.add('open');
+    imageNodeMenu.style.left = Math.max(8, Math.min(clientX, innerWidth - imageNodeMenu.offsetWidth - 8)) + 'px';
+    imageNodeMenu.style.top = Math.max(8, Math.min(clientY, innerHeight - imageNodeMenu.offsetHeight - 8)) + 'px';
 }
 function openOutputNodeMenu(nodeId, clientX, clientY){
     const node = nodes.find(n => n.id === nodeId);
@@ -3538,13 +3595,7 @@ async function downloadOutputNodeImages(nodeId){
         });
         if(!res.ok) throw new Error(await responseErrorMessage(res, tr('canvas.outputDownloadEmpty')));
         const blob = await res.blob();
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `${(canvas?.title || 'canvas-output').slice(0, 48)}-${node.id}.zip`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        await StudioDownload.saveBlob(blob, `${(canvas?.title || 'canvas-output').slice(0, 48)}-${node.id}.zip`);
     } catch(err) {
         alert(err.message || tr('canvas.outputDownloadEmpty'));
     }
@@ -3569,14 +3620,7 @@ async function downloadGroupNodeImages(groupId){
         });
         if(!res.ok) throw new Error(await responseErrorMessage(res, tr('canvas.outputDownloadEmpty')));
         const blob = await res.blob();
-        const href = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = href;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(href), 1200);
+        await StudioDownload.saveBlob(blob, filename);
     } catch(err) {
         alert(err.message || tr('canvas.outputDownloadEmpty'));
     }
@@ -6366,6 +6410,11 @@ function bindOutputWrap(wrap, node){
     const del = wrap.querySelector('.output-del');
     const recoverQuery = wrap.querySelector('.output-recover-query');
     const outputDragUrl = () => img?.dataset.url || video?.dataset.url || audio?.dataset.url || wrap.dataset.outputUrl || '';
+    wrap.oncontextmenu = e => {
+        if(!img || !outputDragUrl()) return;
+        e.preventDefault(); e.stopPropagation();
+        openOutputImageMenu(node, outputDragUrl(), e.clientX, e.clientY);
+    };
     wrap.draggable = Boolean(outputDragUrl());
     wrap.ondragstart = e => {
         const url = outputDragUrl();
@@ -14793,27 +14842,24 @@ function cloneNode(n, dx, dy){
     return copy;
 }
 function duplicateNodesForAltDrag(node, preserveConnections=false){
-    const copy = cloneNode(node, 0, 0);
-    const sourceIds = new Set([node.id]);
-    const idMap = new Map([[node.id, copy.id]]);
-    const copies = [copy];
-    const isGroup = node.type === 'group' || node.type === 'promptGroup';
-    if(isGroup && node.items?.length){
-        const childCopies = node.items
-            .map(id => nodes.find(n => n.id === id))
-            .filter(Boolean)
-            .map(child => {
-                const childCopy = cloneNode(child, 0, 0);
-                sourceIds.add(child.id);
-                idMap.set(child.id, childCopy.id);
-                copies.push(childCopy);
-                return childCopy;
-            });
-        copy.items = copy.items.map(id => idMap.get(id) || id);
-        nodes.push(...childCopies, copy);
-    } else {
-        nodes.push(copy);
-    }
+    const sourceIds = new Set();
+    const collect = n => {
+        if(!n || sourceIds.has(n.id)) return;
+        sourceIds.add(n.id);
+        if(n.type === 'group' || n.type === 'promptGroup')
+            (n.items || []).forEach(id => collect(nodes.find(item => item.id === id)));
+    };
+    (selected.has(node.id) ? [...selected] : [node.id]).forEach(id => collect(nodes.find(n => n.id === id)));
+    const sources = nodes.filter(n => sourceIds.has(n.id));
+    const copies = sources.map(n => cloneNode(n, 0, 0));
+    const idMap = new Map(sources.map((n, i) => [n.id, copies[i].id]));
+    copies.forEach(copy => {
+        if(Array.isArray(copy.items)) copy.items = copy.items.map(id => idMap.get(id)).filter(Boolean);
+        if(Array.isArray(copy.inputs)) copy.inputs = copy.inputs.map(id => idMap.get(id) || (preserveConnections ? id : '')).filter(Boolean);
+    });
+    nodes.push(...copies);
+    selected.clear();
+    copies.forEach(copy => selected.add(copy.id));
     if(preserveConnections){
         const copiedConnections = (connections || [])
             .filter(conn => sourceIds.has(conn.to))
@@ -14830,7 +14876,7 @@ function duplicateNodesForAltDrag(node, preserveConnections=false){
             }
         });
     }
-    return copy;
+    return copies.find(copy => copy.id === idMap.get(node.id));
 }
 function copySelectedNodes(){
     if(!canvas || !selected.size) return;
@@ -14897,28 +14943,11 @@ function workflowFilename(ext){
     return `${title}-${stamp}.${ext}`;
 }
 function downloadBlob(blob, filename){
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(link.href), 1200);
+    return StudioDownload.saveBlob(blob, filename);
 }
 function downloadUrl(url, filename='download'){
     if(!url) return Promise.resolve(false);
-    const raw = canvasOriginalMediaUrl(url);
-    const href = (raw.startsWith('data:') || raw.startsWith('blob:') || raw.startsWith('/api/download-output'))
-        ? raw
-        : `/api/download-output?url=${encodeURIComponent(raw)}&name=${encodeURIComponent(filename || outputDownloadName(raw))}`;
-    const link = document.createElement('a');
-    link.href = href;
-    link.download = filename || '';
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    return Promise.resolve(true);
+    return StudioDownload.save(canvasOriginalMediaUrl(url), filename || outputDownloadName(url));
 }
 function openWorkflowTransferModal(){
     if(!canvas){ setStatus(tr('canvas.needCanvas')); return; }
@@ -15115,10 +15144,9 @@ function startNodeDrag(e, node){
     e.stopPropagation();
     let dragTarget = node;
     if(e.altKey){
+        pushUndo();
         setKnifeMode(false);
         const copy = duplicateNodesForAltDrag(node, e.shiftKey);
-        selected.clear();
-        selected.add(copy.id);
         dragTarget = copy;
         if(e.shiftKey){
             sanitizeConnections();
@@ -15143,7 +15171,7 @@ function startNodeDrag(e, node){
         [...selected].forEach(id => collect(nodes.find(n => n.id === id)));
     }
     const children = [...collected.values()];
-    dragNode = {node: dragTarget, children, sx:e.clientX, sy:e.clientY, ox:dragTarget.x, oy:dragTarget.y};
+    dragNode = {node: dragTarget, children, sx:e.clientX, sy:e.clientY, ox:dragTarget.x, oy:dragTarget.y, undoRecorded:Boolean(e.altKey)};
     document.body.classList.add('canvas-node-drag');
     window.onmousemove = onNodeDrag;
     window.onmouseup = endDrag;
@@ -15152,6 +15180,8 @@ function onNodeDrag(e){
     if(!dragNode) return;
     const dx = (e.clientX - dragNode.sx) / viewport.scale;
     const dy = (e.clientY - dragNode.sy) / viewport.scale;
+    if(!dx && !dy && !dragNode.undoRecorded) return;
+    if(!dragNode.undoRecorded){ pushUndo(); dragNode.undoRecorded = true; }
     dragNode.node.x = dragNode.ox + dx;
     dragNode.node.y = dragNode.oy + dy;
     const el = nodesEl.querySelector(`.node[data-id="${dragNode.node.id}"]`);
@@ -15191,6 +15221,7 @@ function startNodeResize(e, node){
 }
 function onNodeResize(e){
     if(!resizeNode) return;
+    if(!resizeNode.undoRecorded){ pushUndo(); resizeNode.undoRecorded = true; }
     const min = defaultNodeSize(resizeNode.node.type);
     const nextW = Math.max(Math.min(min.w, 220), resizeNode.sw + (e.clientX - resizeNode.sx) / viewport.scale);
     const nextH = Math.max(96, resizeNode.sh + (e.clientY - resizeNode.sy) / viewport.scale);
