@@ -175,6 +175,10 @@ class DesktopFiles:
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
+    def save_download_as(self, encoded: str, filename: str):
+        """Explicit pywebview entry point for the folder picker."""
+        return self.save_download(encoded, filename, True)
+
 
 def main() -> int:
     app_dir = application_dir()

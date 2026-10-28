@@ -17527,8 +17527,6 @@ function openSmartImageMenu(event, nodeId, index){
     menu.style.cssText = 'display:flex;flex-direction:column;gap:4px;width:160px;z-index:1000';
     const actions = [
         ['预览', () => openImagePreviewSmart(nodeId, index)],
-        ['保存', () => StudioDownload.save(image.url, downloadNameForMediaItem(image))],
-        ['另存为', () => StudioDownload.save(image.url, downloadNameForMediaItem(image), true)],
         ['编辑', () => { openImageEditor(nodeId, index); setImageEditMode('crop'); }],
         ['替换', () => {
             const picker = document.createElement('input');
@@ -17543,12 +17541,15 @@ function openSmartImageMenu(event, nodeId, index){
             };
             picker.click();
         }],
+        ['保存', () => StudioDownload.save(image.url, downloadNameForMediaItem(image))],
+        ['另存为', () => StudioDownload.save(image.url, downloadNameForMediaItem(image), true)],
         ['删除', () => { if(confirm('确定删除这张图片？可按 Ctrl+Z 撤销。')) deleteImage(nodeId, index); }]
     ];
     actions.forEach(([title, action]) => {
         const button = document.createElement('button');
-        button.textContent = title;
-        button.style.cssText = 'padding:9px;text-align:left;background:var(--panel);color:var(--text);border-radius:6px';
+        const icon = {预览:'eye',保存:'download','另存为':'folder-open',编辑:'pencil',替换:'image-plus',删除:'trash-2'}[title] || 'circle';
+        button.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i><span>${title}</span>`;
+        button.style.cssText = 'padding:9px;text-align:left;background:var(--panel);color:var(--text);border-radius:6px;display:flex;align-items:center;gap:8px';
         button.onclick = e => { e.stopPropagation(); menu.remove(); action(); };
         menu.appendChild(button);
     });
@@ -17556,6 +17557,7 @@ function openSmartImageMenu(event, nodeId, index){
     document.body.appendChild(menu);
     menu.style.left = Math.max(8, Math.min(event.clientX, innerWidth - menu.offsetWidth - 8)) + 'px';
     menu.style.top = Math.max(8, Math.min(event.clientY, innerHeight - menu.offsetHeight - 8)) + 'px';
+    if(window.lucide) lucide.createIcons();
     return true;
 }
 document.addEventListener('mousedown', event => {

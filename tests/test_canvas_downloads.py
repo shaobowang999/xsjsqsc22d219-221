@@ -84,6 +84,19 @@ class CanvasDownloadTests(unittest.TestCase):
         self.assertTrue(result['ok'])
         self.assertEqual(namespace['webview'].windows[0].create_file_dialog.call_args.args[0], 20)
 
+    def test_explicit_save_as_api_uses_folder_dialog(self):
+        folder = ROOT / 'output' / ('save-as-api-test-' + uuid.uuid4().hex)
+        namespace = dict(Path=Path, base64=base64, os=os, sys=SimpleNamespace(platform='test'), webview=Mock())
+        api = load_definition('desktop_app.py', 'DesktopFiles', namespace)()
+        namespace['Path'] = Mock(wraps=Path)
+        namespace['Path'].home.return_value = folder
+        namespace['webview'].windows = [Mock()]
+        namespace['webview'].FileDialog.FOLDER = 20
+        namespace['webview'].windows[0].create_file_dialog.return_value = (str(folder / 'chosen'),)
+        result = api.save_download_as(base64.b64encode(b'file').decode(), 'image.png')
+        self.assertTrue(result['ok'])
+        self.assertEqual(namespace['webview'].windows[0].create_file_dialog.call_args.args[0], 20)
+
 
 if __name__ == '__main__':
     unittest.main()

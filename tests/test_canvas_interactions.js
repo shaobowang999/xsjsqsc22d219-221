@@ -82,19 +82,19 @@ const root = path.resolve(__dirname, '..');
             nodes[0].images = [{url:'/test.png',name:'test.png'}]; render();
         });
         await page.locator('.image-node[data-id="a"]').click({button:'right',position:{x:30,y:30}});
-        assert.deepEqual(await page.locator('#smartImageContextMenu button').allTextContents(),['预览','保存','另存为','编辑','替换','删除']);
+        assert.deepEqual(await page.locator('#smartImageContextMenu button').allTextContents(),['预览','编辑','替换','保存','另存为','删除']);
         await page.goto('http://canvas.test/static/canvas.html?id=test');
         await page.waitForFunction(() => canvas?.id === 'test');
         await page.evaluate(() => {
             nodes = [{id:'image',type:'image',x:100,y:100,url:'/test.png',name:'test.png'}]; render();
             openImageNodeMenu('image',200,200);
         });
-        assert.deepEqual(await page.locator('#imageNodeMenu button').allTextContents(),['预览','保存','另存为','编辑','替换','删除']);
+        assert.deepEqual(await page.locator('#imageNodeMenu button').allTextContents(),['预览','编辑','替换','保存','另存为','删除']);
         await page.evaluate(() => {
             nodes = [{id:'out',type:'output',x:100,y:100,images:['/test.png']}]; render();
             openOutputImageMenu(nodes[0],'/test.png',200,200);
         });
-        assert.deepEqual(await page.locator('#imageNodeMenu button').allTextContents(),['预览','保存','另存为','编辑','替换','删除']);
+        assert.deepEqual(await page.locator('#imageNodeMenu button').allTextContents(),['预览','编辑','替换','保存','另存为','删除']);
         page.once('dialog', dialog => dialog.accept());
         await page.locator('#imageNodeMenu button').last().click();
         assert.equal(await page.evaluate(() => nodes[0].images.length),0);
@@ -102,7 +102,7 @@ const root = path.resolve(__dirname, '..');
         assert.equal(await page.evaluate(() => nodes[0].images.length),1);
         await page.evaluate(() => {
             window.pywebview = {api:{save_download:async (data,name,saveAs) => {
-                window.savedDownload = {data,name,saveAs}; return {ok:true,path:'Downloads/test.png'};
+            window.savedDownload = {data,name,saveAs:Boolean(saveAs)}; return {ok:true,path:'Downloads/test.png'};
             }}};
         });
         assert.equal(await page.evaluate(() => StudioDownload.save('data:image/png;base64,aGVsbG8=','test.png')),true);

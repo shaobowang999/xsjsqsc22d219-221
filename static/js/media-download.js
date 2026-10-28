@@ -74,7 +74,10 @@ window.StudioDownload = {
                         fileReader.onerror = reject;
                         fileReader.readAsDataURL(blob);
                     });
-                    const result = await desktop.save_download(encoded, filename, saveAs);
+                    const saveMethod = saveAs && typeof desktop.save_download_as === 'function'
+                        ? desktop.save_download_as.bind(desktop)
+                        : desktop.save_download.bind(desktop);
+                    const result = await saveMethod(encoded, filename);
                     if(result.cancelled){ panel.remove(); return false; }
                     if(!result.ok) throw new Error(result.error || '文件保存失败');
                     label.textContent = `已保存：${result.path}`;

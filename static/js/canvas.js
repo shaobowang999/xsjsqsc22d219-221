@@ -3337,10 +3337,10 @@ function openImageNodeMenu(nodeId, clientX, clientY){
     const canEdit = node.url && !isMissingAssetUrl(node.url) && kind === 'image';
     imageNodeMenu.innerHTML = `
         ${canPreview ? `<button class="menu-btn" data-image-preview="${escapeAttr(nodeId)}"><i data-lucide="eye" class="w-4 h-4"></i><span>预览</span></button>` : ''}
-        ${node.url ? `<button class="menu-btn" data-image-save><span>保存</span></button><button class="menu-btn" data-image-save-as><span>另存为</span></button>` : ''}
         ${canEdit ? `<button class="menu-btn" data-image-edit="${escapeAttr(nodeId)}"><i data-lucide="pencil" class="w-4 h-4"></i><span>编辑</span></button>` : ''}
         <button class="menu-btn" data-image-replace="${escapeAttr(nodeId)}"><i data-lucide="image-plus" class="w-4 h-4"></i><span>替换</span></button>
-        <button class="menu-btn" data-image-delete><span>删除</span></button>
+        ${node.url ? `<button class="menu-btn" data-image-save><i data-lucide="download" class="w-4 h-4"></i><span>保存</span></button><button class="menu-btn" data-image-save-as><i data-lucide="folder-open" class="w-4 h-4"></i><span>另存为</span></button>` : ''}
+        <button class="menu-btn" data-image-delete><i data-lucide="trash-2" class="w-4 h-4"></i><span>删除</span></button>
     `;
     imageNodeMenu.style.left = `${clientX}px`;
     imageNodeMenu.style.top = `${clientY}px`;
@@ -3392,8 +3392,6 @@ function openOutputImageMenu(node, url, clientX, clientY){
     imageNodeMenu.innerHTML = '';
     const actions = [
         ['预览', () => openOutputLightbox(url, node)],
-        ['保存', () => StudioDownload.save(canvasOriginalMediaUrl(url), outputDownloadName(url))],
-        ['另存为', () => StudioDownload.save(canvasOriginalMediaUrl(url), outputDownloadName(url), true)],
         ['编辑', () => {
             pushUndo();
             const editable = {id:uid('img'), type:'image', x:node.x + (node.w || 320) + 40, y:node.y, url, name:outputImageName(url), mediaKind:'image'};
@@ -3415,6 +3413,8 @@ function openOutputImageMenu(node, url, clientX, clientY){
             };
             picker.click();
         }],
+        ['保存', () => StudioDownload.save(canvasOriginalMediaUrl(url), outputDownloadName(url))],
+        ['另存为', () => StudioDownload.save(canvasOriginalMediaUrl(url), outputDownloadName(url), true)],
         ['删除', () => {
             if(!confirm('确定删除这张生成图片？可按 Ctrl+Z 撤销。')) return;
             pushUndo(); node.images = (node.images || []).filter(item => outputUrlValue(item) !== url);
@@ -3422,11 +3422,13 @@ function openOutputImageMenu(node, url, clientX, clientY){
         }]
     ];
     actions.forEach(([title, action]) => {
-        const button = document.createElement('button'); button.className = 'menu-btn'; button.textContent = title;
+        const icon = {预览:'eye',保存:'download','另存为':'folder-open',编辑:'pencil',替换:'image-plus',删除:'trash-2'}[title] || 'circle';
+        const button = document.createElement('button'); button.className = 'menu-btn'; button.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i><span>${title}</span>`;
         button.onclick = e => { e.stopPropagation(); closeImageNodeMenu(); action(); };
         imageNodeMenu.appendChild(button);
     });
     imageNodeMenu.classList.add('open');
+    refreshIcons();
     imageNodeMenu.style.left = Math.max(8, Math.min(clientX, innerWidth - imageNodeMenu.offsetWidth - 8)) + 'px';
     imageNodeMenu.style.top = Math.max(8, Math.min(clientY, innerHeight - imageNodeMenu.offsetHeight - 8)) + 'px';
 }
