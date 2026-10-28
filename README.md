@@ -13,7 +13,7 @@
 - “另存为”直接弹出文件夹选择框，选择目标文件夹后保存。
 - 浏览器版明确提示浏览器默认下载文件夹，不再显示模糊的保存提示。
 
-**[下载 Windows 2026.10.29 完整桌面包（含 SQSC 图标和卸载程序）](https://github.com/shaobowang999/xsjsqsc22d219-221/releases/download/v2026.10.29/sqsc-canvas-2026.10.29-win-x64-with-uninstall.zip)**
+**[下载 Windows 2026.10.29 保存修复桌面包（含 SQSC 图标和卸载程序）](https://github.com/shaobowang999/xsjsqsc22d219-221/releases/download/v2026.10.29/sqsc-canvas-2026.10.29-save-fix-win-x64-with-uninstall.zip)**
 
 下载后完整解压，双击 `三千思创无线画布.exe` 启动。卸载时关闭画布，运行同目录的 `uninstall.exe` 并确认；用户数据和 API 配置会保留。
 
