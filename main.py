@@ -162,7 +162,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 GLOBAL_LOOP = None
-APP_VERSION = "2026.10.28"
+APP_VERSION = "2026.10.29"
 APP_NAME = "三千思创"
 GITHUB_REPO_URL = "https://github.com/shaobowang999/xsjsqsc22d219-221"
 GITHUB_CONTENTS_ROOT = "https://api.github.com/repos/shaobowang999/xsjsqsc22d219-221/contents"

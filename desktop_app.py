@@ -149,12 +149,14 @@ class DesktopFiles:
                     pass
             if save_as:
                 selected = webview.windows[0].create_file_dialog(
-                    webview.FileDialog.SAVE, directory=str(folder), save_filename=filename,
+                    webview.FileDialog.FOLDER, directory=str(folder),
                 )
                 if not selected:
                     return {"cancelled": True}
-                path = Path(selected if isinstance(selected, str) else selected[0])
-                mode = 'wb'  # The native Save dialog confirms replacement.
+                selected_folder = Path(selected if isinstance(selected, str) else selected[0])
+                selected_folder.mkdir(parents=True, exist_ok=True)
+                path = selected_folder / filename
+                mode = 'xb'
             else:
                 folder.mkdir(parents=True, exist_ok=True)
                 path = folder / filename

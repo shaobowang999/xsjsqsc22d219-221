@@ -21,7 +21,7 @@ class DesktopSourceLoadingTests(unittest.TestCase):
             self.assertEqual(desktop_app.APP_URL, "http://127.0.0.1:54321/")
 
     def test_same_release_server_can_be_reused(self):
-        response = io.BytesIO(json.dumps({"name": "三千思创", "version": "2026.10.28"}).encode())
+        response = io.BytesIO(json.dumps({"name": "三千思创", "version": "2026.10.29"}).encode())
         with patch.object(desktop_app, "PORT", 3000), patch.object(desktop_app, "APP_URL", "http://127.0.0.1:3000/"), patch.object(desktop_app, "port_is_open", return_value=True), patch.object(desktop_app.urllib.request, "urlopen", return_value=response), patch.object(desktop_app.socket, "socket") as factory:
             desktop_app.select_server_port()
             self.assertEqual(desktop_app.PORT, 3000)

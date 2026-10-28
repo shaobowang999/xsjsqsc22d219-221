@@ -40,11 +40,11 @@ class CanvasDownloadTests(unittest.TestCase):
         namespace['webview'].windows = [Mock()]
         namespace['webview'].windows[0].create_file_dialog.return_value = None
         self.assertTrue(api.save_download(encoded, 'image.png', True)['cancelled'])
-        chosen = folder / 'chosen.png'
+        chosen = folder / 'chosen-folder'
         namespace['webview'].windows[0].create_file_dialog.return_value = (str(chosen),)
         saved_as = api.save_download(encoded, 'image.png', True)
         self.assertTrue(saved_as['ok'])
-        self.assertEqual(chosen.read_bytes(), base64.b64decode(encoded))
+        self.assertEqual((chosen / 'image.png').read_bytes(), base64.b64decode(encoded))
         self.assertFalse(api.save_download('invalid base64!', 'bad.png')['ok'])
 
     def test_remote_download_exposes_length_for_progress_and_closes_stream(self):
@@ -70,6 +70,19 @@ class CanvasDownloadTests(unittest.TestCase):
         self.assertEqual(b''.join(result.body), b'abcdef')
         upstream.close.assert_called_once()
         self.assertEqual(requests.get.call_args.kwargs['headers']['Accept-Encoding'], 'identity')
+
+    def test_save_as_uses_folder_dialog(self):
+        folder = ROOT / 'output' / ('save-as-test-' + uuid.uuid4().hex)
+        namespace = dict(Path=Path, base64=base64, os=os, sys=SimpleNamespace(platform='test'), webview=Mock())
+        api = load_definition('desktop_app.py', 'DesktopFiles', namespace)()
+        namespace['Path'] = Mock(wraps=Path)
+        namespace['Path'].home.return_value = folder
+        namespace['webview'].windows = [Mock()]
+        namespace['webview'].FileDialog.FOLDER = 20
+        namespace['webview'].windows[0].create_file_dialog.return_value = (str(folder / 'chosen'),)
+        result = api.save_download(base64.b64encode(b'file').decode(), 'image.png', True)
+        self.assertTrue(result['ok'])
+        self.assertEqual(namespace['webview'].windows[0].create_file_dialog.call_args.args[0], 20)
 
 
 if __name__ == '__main__':

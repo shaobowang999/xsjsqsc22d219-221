@@ -57,7 +57,7 @@ class CompanyUpdateTests(unittest.TestCase):
     def test_app_info_exposes_only_company_sources_and_current_notes(self):
         result = main.app_info()
         self.assertEqual(set(result["sources"]), {"github", "github_archive"})
-        self.assertEqual(result["version"], "2026.10.28")
+        self.assertEqual(result["version"], "2026.10.29")
         self.assertEqual(result["update_notes"]["version"], result["version"])
         for source in result["sources"].values():
             self.assertIn("shaobowang999/xsjsqsc22d219-221", source["repo_url"])
