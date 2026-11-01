@@ -3247,19 +3247,29 @@ async function fetchModels(){
 }
 
 // —— 模型选择器浮层 ——
-// 每个模型只归一类（根据用户已配置 或 关键字猜测）；勾选 = 纳入该分类
+// 每个模型只归一类（优先使用 APIMart 官方元数据，其次使用用户配置或关键字猜测）；勾选 = 纳入该分类
 let pickerState = { category: {}, selected: {} };
 let pickerVisibleIds = [];
 function openModelPicker(){
     const item = provider();
     if(!item || !lastFetchedAll.length){ alert('没有拉取到模型'); return; }
     const existing = { image: new Set(item.image_models||[]), chat: new Set(item.chat_models||[]), video: new Set(item.video_models||[]) };
+    // APIMart returns an authoritative category with expand=category.  Use it
+    // to repair models that were previously saved in the wrong bucket (for
+    // example seedance2.0 in LLM) when the picker is opened again.
+    const protocol = String(item.protocol || '').toLowerCase();
+    const isAuthoritativeCatalog = protocol === 'apimart' || /(^|\.)apimart\.ai(?:\/|$)/i.test(String(item.base_url || ''));
     const allIds = new Set([...lastFetchedAll, ...(item.image_models||[]), ...(item.chat_models||[]), ...(item.video_models||[])]);
     pickerState = { category: {}, selected: {} };
     allIds.forEach(id => {
-        // 类别归属：用户已配置 > 关键字建议 > 默认 chat
+        // 类别归属：APIMart 官方元数据 > 用户已配置 > 关键字建议 > 默认 chat
         let cat;
-        if(existing.image.has(id)) cat = 'image';
+        const fetchedCategory = /seedance/i.test(String(id || '')) ? 'video'
+            : lastFetchedSuggestion?.image?.has(id) ? 'image'
+            : lastFetchedSuggestion?.video?.has(id) ? 'video'
+            : lastFetchedSuggestion?.chat?.has(id) ? 'chat' : '';
+        if(isAuthoritativeCatalog && fetchedCategory) cat = fetchedCategory;
+        else if(existing.image.has(id)) cat = 'image';
         else if(existing.video.has(id)) cat = 'video';
         else if(existing.chat.has(id)) cat = 'chat';
         else if(lastFetchedSuggestion?.image?.has(id)) cat = 'image';
@@ -3693,15 +3703,33 @@ function removeModel(kind, index){
     renderModels(kind);
     if(kind === 'image') renderMsLoras();
 }
+function isApimartProvider(item){
+    const protocol = String(item?.protocol || '').trim().toLowerCase();
+    const base = String(item?.base_url || '').trim().toLowerCase();
+    return protocol === 'apimart' || /(^|\.)apimart\.ai(?:\/|$)/i.test(base);
+}
+function repairApimartModelBuckets(item){
+    if(!isApimartProvider(item)) return false;
+    const image = Array.isArray(item.image_models) ? item.image_models : [];
+    const chat = Array.isArray(item.chat_models) ? item.chat_models : [];
+    const seedance = [...image, ...chat].filter(model => /seedance/i.test(String(model || '')));
+    if(!seedance.length) return false;
+    const moved = new Set(seedance.map(model => String(model || '').trim()).filter(Boolean));
+    item.image_models = unique(image.filter(model => !moved.has(String(model || '').trim())));
+    item.chat_models = unique(chat.filter(model => !moved.has(String(model || '').trim())));
+    item.video_models = unique([...(Array.isArray(item.video_models) ? item.video_models : []), ...seedance]);
+    return true;
+}
 async function loadProviders(){
     setStatus(tr('api.loading'));
     try {
         const data = await fetch('/api/providers').then(r => r.json());
         providers = data.providers || [];
+        const repairedCount = providers.reduce((count, item) => count + (repairApimartModelBuckets(item) ? 1 : 0), 0);
         selectedId = sortedProviders()[0]?.id || '';
         renderEditor();
         openRecommendApi();
-        setStatus('');
+        setStatus(repairedCount ? `已自动修正 ${repairedCount} 个 APIMart 平台的 Seedance 视频模型分类` : '');
     } catch(err) {
         setStatus(tr('api.loadFailed'));
     }
@@ -3728,6 +3756,7 @@ async function saveProviders(){
                 : item.image_edit_route
         );
         if(isCliProtocol) applyCliProtocolDefaults(item, item.protocol);
+        repairApimartModelBuckets(item);
         if(item.id === 'runninghub'){
             item.base_url = normalizeRunningHubBaseUrl(item.base_url);
             item.image_models = unique(item.image_models || []);
@@ -3802,6 +3831,7 @@ async function saveProviders(){
         if(!res.ok) throw new Error((await res.json()).detail || tr('api.saveFailed'));
         const data = await res.json();
         providers = data.providers || providers;
+        providers.forEach(repairApimartModelBuckets);
         providers.forEach(item => {
             delete item.api_key;
             delete item.wallet_api_key;

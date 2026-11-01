@@ -1335,9 +1335,23 @@ def normalize_provider(item):
     if locked_rule:
         protocol = locked_rule["protocol"]
         image_request_mode = locked_rule["image_request_mode"]
+    image_models = model_list_from_values(item.get("image_models") or [])
+    chat_models = model_list_from_values(item.get("chat_models") or [])
     video_models = model_list_from_values(item.get("video_models") or [])
     if locked_rule and "video_models" in locked_rule:
         video_models = model_list_from_values(locked_rule.get("video_models") or [])
+    # Repair old APIMart configurations on load.  Before the category-aware
+    # catalog was added, Seedance IDs were persisted in chat_models; keeping
+    # them there would make the error reappear every time settings reopened.
+    # This migration is deliberately limited to APIMart providers so a user's
+    # manual classification on other OpenAI-compatible providers is preserved.
+    if protocol == "apimart" or "apimart.ai" in base_url.lower():
+        seedance_models = [model for model in [*image_models, *chat_models] if "seedance" in model.lower()]
+        if seedance_models:
+            moved = set(seedance_models)
+            image_models = [model for model in image_models if model not in moved]
+            chat_models = [model for model in chat_models if model not in moved]
+            video_models = model_list_from_values([*video_models, *seedance_models])
     return {
         "id": provider_id,
         "name": name,
@@ -1348,8 +1362,8 @@ def normalize_provider(item):
         "image_edit_endpoint": image_edit_endpoint,
         "enabled": bool(item.get("enabled", True)),
         "primary": bool(item.get("primary", False)),
-        "image_models": model_list_from_values(item.get("image_models") or []),
-        "chat_models": model_list_from_values(item.get("chat_models") or []),
+        "image_models": image_models,
+        "chat_models": chat_models,
         "video_models": video_models,
         "model_names": normalize_model_name_map(item.get("model_names")),
         "model_protocols": normalize_model_protocols(item.get("model_protocols")),
@@ -13391,6 +13405,8 @@ def protocol_from_payload(payload):
     base_url = str(getattr(payload, "base_url", "") or "").strip().lower()
     if "runninghub.cn" in base_url or "runninghub.ai" in base_url:
         return "runninghub"
+    if "apimart.ai" in base_url:
+        return "apimart"
     protocol = str(getattr(payload, "protocol", "") or "openai").strip().lower()
     return protocol if protocol in SUPPORTED_PROVIDER_PROTOCOLS else "openai"
 
@@ -13419,7 +13435,14 @@ def upstream_models_url(base_url: str, protocol: str):
         return f"{base_url}/models" if base_url.endswith("/api/v3") else f"{base_url}/api/v3/models"
     if protocol == "runninghub":
         return runninghub_openapi_url({"base_url": base_url}, "models")
-    return f"{base_url}/models" if base_url.endswith("/v1") else f"{base_url}/v1/models"
+    url = f"{base_url}/models" if base_url.endswith("/v1") else f"{base_url}/v1/models"
+    # APIMart's legacy /v1/models response only contains model IDs.  Ask for
+    # the lightweight category metadata so video/image models are classified
+    # from the provider's catalog instead of guessed from their names.
+    if protocol == "apimart" or "apimart.ai" in str(base_url or "").lower():
+        separator = "&" if "?" in url else "?"
+        url = f"{url}{separator}expand=category"
+    return url
 
 def upstream_model_headers(api_key: str, protocol: str):
     if protocol == "gemini":
@@ -13551,39 +13574,120 @@ async def probe_volcengine_auto_detect(client, base_url: str, api_key: str):
         "raw": {"task_probe": task_probe, "openai_compat_probe": compat_probe.get("raw")},
     }
 
-def classify_upstream_model(mid):
-    lc = str(mid or "").lower()
-    video_keys = ["veo", "sora", "wan2", "wanx", "doubao-seedance", "doubao-1", "kling", "hailuo", "video", "t2v-", "i2v-", "s2v"]
-    if any(k in lc for k in video_keys):
+def _model_metadata_values(value):
+    """Flatten metadata fields that may be a string, list, or nested object."""
+    if isinstance(value, dict):
+        values = []
+        for item in value.values():
+            values.extend(_model_metadata_values(item))
+        return values
+    if isinstance(value, (list, tuple, set)):
+        values = []
+        for item in value:
+            values.extend(_model_metadata_values(item))
+        return values
+    text = str(value or "").strip().lower()
+    return [text] if text else []
+
+
+def _model_category_from_metadata(item):
+    """Read APIMart/OpenAI-compatible category metadata when available."""
+    if not isinstance(item, dict):
+        return ""
+    category = str(item.get("category") or item.get("model_category") or item.get("model_type") or "").strip().lower()
+    if category in {"video", "image", "chat"}:
+        return category
+    # APIMart may omit category while still returning capability tags or a
+    # parameter contract.  Those fields are more reliable than an ID guess.
+    tags = _model_metadata_values(item.get("capability_tags") or item.get("capabilities") or item.get("modalities"))
+    parameter_text = " ".join(_model_metadata_values(item.get("parameters")))
+    metadata_text = " ".join([*tags, parameter_text])
+    if re.search(r"(?:text|image|video|reference|frame|motion)[\s_-]*to[\s_-]*video|video_generation|/videos/", metadata_text):
         return "video"
-    image_keys = ["banana", "image", "dalle", "dall-e", "imagen", "flux", "stable", "sdxl", "midjourney", "nano-banana", "ideogram", "fal-ai", "z-image", "qwen-image", "klein", "seedream", "doubao-seedream", "text-to-image", "image-to-image"]
-    if any(k in lc for k in image_keys):
+    if re.search(r"(?:text|image)[\s_-]*to[\s_-]*image|image_generation|/images/", metadata_text):
+        return "image"
+    if category == "audio":
+        # The settings UI currently has no audio-model bucket; keep audio
+        # models usable in the general text-model list.
+        return "chat"
+    return ""
+
+
+def classify_upstream_model(mid, metadata=None):
+    metadata_category = _model_category_from_metadata(metadata)
+    if metadata_category:
+        return metadata_category
+    lc = str(mid or "").strip().lower()
+    normalized = re.sub(r"[^a-z0-9]+", "-", lc).strip("-")
+    compact = re.sub(r"[^a-z0-9]+", "", lc)
+    video_keys = [
+        "veo", "sora", "wan2", "wanx", "doubao-seedance", "seedance",
+        "kling", "hailuo", "pixverse", "vidu", "runway", "pika", "luma",
+        "hunyuan-video", "ltx-video", "grok-imagine-video", "video",
+        "t2v-", "i2v-", "s2v", "r2v-",
+    ]
+    if any(k in lc or k in normalized for k in video_keys) or compact.startswith("seedance"):
+        return "video"
+    image_keys = [
+        "banana", "image", "dalle", "dall-e", "imagen", "flux", "stable",
+        "sdxl", "midjourney", "nano-banana", "ideogram", "fal-ai", "z-image",
+        "qwen-image", "klein", "seedream", "doubao-seedream", "text-to-image",
+        "image-to-image",
+    ]
+    if any(k in lc or k in normalized for k in image_keys):
         return "image"
     return "chat"
 
 def parse_upstream_models(raw, protocol="openai"):
-    items = raw.get("data") if isinstance(raw, dict) else None
-    if not items and isinstance(raw, dict):
-        items = raw.get("models") or raw.get("list") or []
+    items = raw if isinstance(raw, list) else None
+    if items is None and isinstance(raw, dict):
+        # Accept both the standard OpenAI shape and APIMart's wrapped forms
+        # (for example data.models / data.data) so a gateway envelope does not
+        # silently turn a valid model list into an empty result.
+        pending = [raw]
+        seen = set()
+        items = []
+        while pending:
+            candidate = pending.pop(0)
+            if not isinstance(candidate, dict) or id(candidate) in seen:
+                continue
+            seen.add(id(candidate))
+            for key in ("data", "models", "list", "items", "records", "results", "result"):
+                value = candidate.get(key)
+                if isinstance(value, list):
+                    items.extend(value)
+                elif isinstance(value, dict):
+                    pending.append(value)
     if not isinstance(items, list):
         items = []
     ids = []
+    metadata_by_id = {}
     for it in items:
         if isinstance(it, str):
-            mid = it
+            mid = it.strip()
+            metadata = None
         elif isinstance(it, dict):
             mid = it.get("id") or it.get("name") or it.get("model")
+            metadata = it
         else:
             mid = ""
+            metadata = None
         if mid:
-            mid = str(mid)
+            mid = str(mid).strip()
             if protocol == "gemini" and mid.startswith("models/"):
                 mid = mid[len("models/"):]
-            ids.append(mid)
+            if mid:
+                if mid not in metadata_by_id:
+                    ids.append(mid)
+                    metadata_by_id[mid] = metadata
+                elif _model_category_from_metadata(metadata) and not _model_category_from_metadata(metadata_by_id[mid]):
+                    # Prefer the duplicate entry that carries an explicit
+                    # category/capability over a bare legacy entry.
+                    metadata_by_id[mid] = metadata
     ids = sorted(set(ids))
     grouped = {"image": [], "chat": [], "video": []}
     for mid in ids:
-        grouped[classify_upstream_model(mid)].append(mid)
+        grouped[classify_upstream_model(mid, metadata_by_id.get(mid))].append(mid)
     return grouped, ids
 
 def apply_agnes_model_defaults(base_url, grouped, ids):
@@ -13683,7 +13787,11 @@ async def test_provider_connection(payload: TestConnectionPayload):
                         message = f"{probe.get('message') or '检测到方舟/Ark 兼容入口'}；OpenAI /v1/models 不可用，已自动切换为方舟协议。请按实际方舟控制台模型名称手动填写视频模型。"
                         return volcengine_default_model_payload(status=probe.get("status") or resp.status_code, message=message, raw={"models_error": resp.text[:300], **(probe.get("raw") or {})})
                 return {"ok": False, "status": resp.status_code, "message": resp.text[:300]}
-            data = resp.json() if resp.text else {}
+            try:
+                data = resp.json() if resp.text else {}
+            except ValueError as exc:
+                endpoint_label = "/v1beta/models" if protocol == "gemini" else "/api/v3/models" if protocol == "volcengine" else "/openapi/v2/models" if protocol == "runninghub" else "/v1/models"
+                raise HTTPException(status_code=502, detail=f"上游 {endpoint_label} 返回的不是有效 JSON：{resp.text[:300]}") from exc
             grouped, ids = parse_upstream_models(data, protocol)
             grouped, ids = apply_agnes_model_defaults(base_url, grouped, ids)
             grouped = apply_locked_recommended_model_rules(base_url, grouped)
@@ -13963,7 +14071,10 @@ async def fetch_models_from_upstream(base_url: str, api_key: str, protocol: str 
                             "raw": payload["raw"],
                         }
                 raise HTTPException(status_code=resp.status_code, detail=f"上游 {endpoint_label} 失败：{resp.text[:300]}")
-            raw = resp.json()
+            try:
+                raw = resp.json()
+            except ValueError as exc:
+                raise HTTPException(status_code=502, detail=f"上游 {endpoint_label} 返回的不是有效 JSON：{resp.text[:300]}") from exc
     except httpx.HTTPError as e:
         if protocol == "volcengine":
             try:
