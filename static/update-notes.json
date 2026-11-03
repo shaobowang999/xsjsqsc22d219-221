@@ -1,17 +1,35 @@
 {
-  "version": "2026.11.01",
-  "updated_at": "2026-11-01T00:00:00+08:00",
+  "version": "2026.11.03",
+  "updated_at": "2026-11-03T00:00:00+08:00",
   "items": [
     {
-      "type": "improvement",
-      "text": "调整主菜单顺序：在线生图、GPT 对话和素材库移到三千思创画布下方、本地功能上方。"
+      "type": "fix",
+      "text": "更新 ModelScope 当前可用模型目录，移除过期模型和失效 LoRA 配置。"
     },
     {
-      "type": "improvement",
-      "text": "客户端版本更新为 2026.11.01，支持通过公司仓库检测并获取本次菜单更新。"
+      "type": "fix",
+      "text": "修复 APIMART 视频模型分类，Seedance、Kling、Wan 等模型不会再进入 LLM 列表。"
+    },
+    {
+      "type": "fix",
+      "text": "更新 Agnes 默认视频模型为当前可用型号。"
     }
   ],
   "history": [
+    {
+      "version": "2026.11.01",
+      "updated_at": "2026-11-01T00:00:00+08:00",
+      "items": [
+        {
+          "type": "improvement",
+          "text": "调整主菜单顺序：在线生图、GPT 对话和素材库移到三千思创画布下方、本地功能上方。"
+        },
+        {
+          "type": "improvement",
+          "text": "客户端版本更新为 2026.11.01，支持通过公司仓库检测并获取本次菜单更新。"
+        }
+      ]
+    },
     {
       "version": "2026.10.29",
       "updated_at": "2026-10-29T00:00:00+08:00",

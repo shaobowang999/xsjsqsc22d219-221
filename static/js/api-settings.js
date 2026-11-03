@@ -72,10 +72,8 @@ const VOLCENGINE_DEFAULT_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 const VOLCENGINE_DEFAULT_PROJECT_NAME = 'default';
 const VOLCENGINE_DEFAULT_REGION = 'cn-beijing';
 const MS_BUILTIN_IMAGE_MODELS = [
-    'Tongyi-MAI/Z-Image-Turbo',
-    'Qwen/Qwen-Image-2512',
-    'Qwen/Qwen-Image-Edit-2511',
-    'black-forest-labs/FLUX.2-klein-9B'
+    'MusePublic/Qwen-Image-Edit',
+    'Qwen/Qwen-Image-Edit'
 ];
 const MS_DEFAULT_BASE_URL = 'https://api-inference.modelscope.cn/v1';
 const RH_DEFAULT_BASE_URL = 'https://www.runninghub.ai';
@@ -243,7 +241,7 @@ const RECOMMENDED_APIS = [
         advantages:['免费额度可用', '支持 Agnes 图像与视频接口', 'OpenAI 兼容地址配置简单'],
         image_models:['agnes-image-2.1-flash', 'agnes-image-2.0-flash'],
         chat_models:[],
-        video_models:['agnes-video-v2.0']
+        video_models:['agnes-video-2.5-flash']
     }
 ];
 const RECOMMEND_GROUPS = [
@@ -3708,16 +3706,23 @@ function isApimartProvider(item){
     const base = String(item?.base_url || '').trim().toLowerCase();
     return protocol === 'apimart' || /(^|\.)apimart\.ai(?:\/|$)/i.test(base);
 }
+function isVideoModelName(model){
+    return /(?:^|[^a-z0-9])(?:veo|sora|wan(?:2|3|x)|seedance|kling|hailuo|pixverse|vidu|runway|pika|luma|hunyuan[-_]?video|ltx[-_]?video|grok[-_]?imagine[-_]?video|video|t2v|i2v|s2v|r2v)(?:[^a-z0-9]|$)/i.test(String(model || '').trim());
+}
 function repairApimartModelBuckets(item){
     if(!isApimartProvider(item)) return false;
     const image = Array.isArray(item.image_models) ? item.image_models : [];
     const chat = Array.isArray(item.chat_models) ? item.chat_models : [];
-    const seedance = [...image, ...chat].filter(model => /seedance/i.test(String(model || '')));
-    if(!seedance.length) return false;
-    const moved = new Set(seedance.map(model => String(model || '').trim()).filter(Boolean));
+    const video = Array.isArray(item.video_models) ? item.video_models : [];
+    const explicitVideo = new Set(video.map(model => String(model || '').trim()).filter(Boolean));
+    const moved = new Set([...image, ...chat]
+        .filter(model => isVideoModelName(model) || explicitVideo.has(String(model || '').trim()))
+        .map(model => String(model || '').trim())
+        .filter(Boolean));
+    if(!moved.size) return false;
     item.image_models = unique(image.filter(model => !moved.has(String(model || '').trim())));
     item.chat_models = unique(chat.filter(model => !moved.has(String(model || '').trim())));
-    item.video_models = unique([...(Array.isArray(item.video_models) ? item.video_models : []), ...seedance]);
+    item.video_models = unique([...video, ...moved]);
     return true;
 }
 async function loadProviders(){
@@ -3729,7 +3734,7 @@ async function loadProviders(){
         selectedId = sortedProviders()[0]?.id || '';
         renderEditor();
         openRecommendApi();
-        setStatus(repairedCount ? `已自动修正 ${repairedCount} 个 APIMart 平台的 Seedance 视频模型分类` : '');
+        setStatus(repairedCount ? `已自动修正 ${repairedCount} 个 APIMart 平台的视频模型分类` : '');
     } catch(err) {
         setStatus(tr('api.loadFailed'));
     }

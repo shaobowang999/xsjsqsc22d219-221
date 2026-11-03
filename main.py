@@ -403,7 +403,7 @@ try:
     GEMINI_CLI_DEFAULT_TIMEOUT = max(30, min(3600, int(os.getenv("GEMINI_CLI_TIMEOUT", "900"))))
 except Exception:
     GEMINI_CLI_DEFAULT_TIMEOUT = 900
-AGNES_DEFAULT_VIDEO_MODELS = ["agnes-video-v2.0"]
+AGNES_DEFAULT_VIDEO_MODELS = ["agnes-video-2.5-flash"]
 JIMENG_LEGACY_IMAGE_MODELS = {
     "jimeng-image-2k",
     "jimeng-image-4k",
@@ -583,48 +583,71 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
 PUBLIC_MEDIA_BASE_URL = os.getenv("PUBLIC_MEDIA_BASE_URL", "").strip().rstrip("/")
 MODELSCOPE_API_KEY = os.getenv("MODELSCOPE_API_KEY", "")
 MODELSCOPE_CHAT_BASE_URL = "https://api-inference.modelscope.cn/v1"
+# ModelScope's public catalog is checked during release maintenance. Keep the
+# built-in catalog aligned with the current endpoint so new installations do
+# not start with retired model IDs. Image models are the two Qwen Image Edit
+# entries; the remaining public entries are text/multimodal chat models.
 MODELSCOPE_DEFAULT_IMAGE_MODELS = [
-    "Tongyi-MAI/Z-Image-Turbo",
-    "Qwen/Qwen-Image-2512",
-    "Qwen/Qwen-Image-Edit-2511",
-    "black-forest-labs/FLUX.2-klein-9B",
+    "MusePublic/Qwen-Image-Edit",
+    "Qwen/Qwen-Image-Edit",
 ]
 MODELSCOPE_DEFAULT_CHAT_MODELS = [
-    "Qwen/Qwen3-235B-A22B",
-    "Qwen/Qwen3-VL-235B-A22B-Instruct",
-    "MiniMax/MiniMax-M2.7:MiniMax",
+    "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "deepseek-ai/DeepSeek-V4-Pro",
+    "deepseek-ai/DeepSeek-V4-Pro-0813",
+    "deepseek-ai/DeepSeek-V4.1-Flash",
+    "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "early-access/EA-29B-A4B",
+    "MedAIBase/AntAngelMed",
+    "meituan-longcat/LongCat-Flash-Lite",
+    "MiniMax/MiniMax-M1-80k",
+    "MiniMax/MiniMax-M3",
+    "mistralai/Mistral-Large-Instruct-2407",
+    "nex-agi/Nex-N2.5-mini",
+    "nex-agi/Nex-N2.5-Pro",
+    "opencompass/CompassJudger-1-32B-Instruct",
+    "OpenGVLab/InternVL3_5-241B-A28B",
+    "PaddlePaddle/ERNIE-4.5-0.3B-PT",
+    "PaddlePaddle/ERNIE-4.5-21B-A3B-PT",
+    "PaddlePaddle/ERNIE-4.5-300B-A47B-PT",
+    "PaddlePaddle/ERNIE-4.5-VL-28B-A3B-PT",
+    "Qwen/Qwen3.5-122B-A10B",
+    "Qwen/Qwen3.5-27B",
+    "Qwen/Qwen3.5-35B-A3B",
+    "Qwen/Qwen3.5-397B-A17B",
+    "Qwen/Qwen3.8-27B",
+    "Qwen/Qwen3.8-Flash-Next",
+    "Shanghai_AI_Laboratory/Intern-S1",
+    "Shanghai_AI_Laboratory/Intern-S1-mini",
+    "Shanghai_AI_Laboratory/Intern-S2-Preview",
+    "stepfun-ai/Step-3.5-Flash",
+    "stepfun-ai/Step-3.7-Flash",
+    "stepfun-ai/Step-5-Preview",
+    "XGenerationLab/XiYanSQL-QwenCoder-32B-2412",
+    "XGenerationLab/XiYanSQL-QwenCoder-32B-2504",
+    "ZhipuAI/GLM-4.7-Flash",
+    "ZhipuAI/GLM-5.2",
 ]
 _MODELSCOPE_CONFIGURED_CHAT_MODELS = [m.strip() for m in os.getenv("MODELSCOPE_CHAT_MODELS", "").split(",") if m.strip()]
 MODELSCOPE_CHAT_MODELS = list(dict.fromkeys([m for m in [*MODELSCOPE_DEFAULT_CHAT_MODELS, *_MODELSCOPE_CONFIGURED_CHAT_MODELS] if m]))
 MODELSCOPE_DEFAULT_IMAGE_MODEL = MODELSCOPE_DEFAULT_IMAGE_MODELS[0]
-MODELSCOPE_DEFAULT_CHAT_MODEL = "Qwen/Qwen3-235B-A22B"
-MODELSCOPE_DEFAULT_LORAS = [
-    {
-        "id": "Daniel8152/film",
-        "name": "Z-Image Film",
-        "target_model": "Tongyi-MAI/Z-Image-Turbo",
-        "strength": 0.8,
-        "enabled": True,
-        "note": "",
-    },
-    {
-        "id": "Daniel8152/Qwen-Image-2512-Film",
-        "name": "Qwen Image 2512 Film",
-        "target_model": "Qwen/Qwen-Image-2512",
-        "strength": 0.8,
-        "enabled": True,
-        "note": "",
-    },
-    {
-        "id": "Daniel8152/Klein-enhance",
-        "name": "Klein enhance",
-        "target_model": "black-forest-labs/FLUX.2-klein-9B",
-        "strength": 0.8,
-        "enabled": True,
-        "note": "",
-    },
-]
-MODELSCOPE_DEFAULTS_VERSION = 3
+MODELSCOPE_DEFAULT_CHAT_MODEL = MODELSCOPE_DEFAULT_CHAT_MODELS[0]
+MODELSCOPE_DEFAULT_LORAS = []
+MODELSCOPE_DEFAULTS_VERSION = 4
+MODELSCOPE_RETIRED_MODEL_IDS = {
+    "Tongyi-MAI/Z-Image-Turbo",
+    "Qwen/Qwen-Image-2512",
+    "Qwen/Qwen-Image-Edit-2511",
+    "black-forest-labs/FLUX.2-klein-9B",
+    "Qwen/Qwen3-235B-A22B",
+    "Qwen/Qwen3-VL-235B-A22B-Instruct",
+    "MiniMax/MiniMax-M2.7:MiniMax",
+}
+MODELSCOPE_RETIRED_LORA_IDS = {
+    "Daniel8152/film",
+    "Daniel8152/Qwen-Image-2512-Film",
+    "Daniel8152/Klein-enhance",
+}
 CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
 IMAGE_MODEL = os.getenv("IMAGE_MODEL", "gpt-image-2")
 SYSTEM_PROMPT = os.getenv("SYSTEM_PROMPT", "You are a helpful assistant.")
@@ -893,9 +916,21 @@ def merge_default_api_providers(providers, inject_missing=True):
                 current["base_url"] = ms_default["base_url"]
             seeded_version = int(current.get("ms_defaults_version") or 0)
             if seeded_version < MODELSCOPE_DEFAULTS_VERSION:
-                image_models = model_list_from_values([*MODELSCOPE_DEFAULT_IMAGE_MODELS, *(current.get("image_models") or [])])
-                chat_models = model_list_from_values([*MODELSCOPE_DEFAULT_CHAT_MODELS, *(current.get("chat_models") or [])])
-                loras = normalize_ms_loras([*MODELSCOPE_DEFAULT_LORAS, *(current.get("ms_loras") or [])])
+                image_models = model_list_from_values([
+                    *MODELSCOPE_DEFAULT_IMAGE_MODELS,
+                    *(current.get("image_models") or []),
+                ])
+                chat_models = model_list_from_values([
+                    *MODELSCOPE_DEFAULT_CHAT_MODELS,
+                    *(current.get("chat_models") or []),
+                ])
+                image_models = [model for model in image_models if model not in MODELSCOPE_RETIRED_MODEL_IDS]
+                chat_models = [model for model in chat_models if model not in MODELSCOPE_RETIRED_MODEL_IDS]
+                loras = normalize_ms_loras([
+                    *MODELSCOPE_DEFAULT_LORAS,
+                    *(current.get("ms_loras") or []),
+                ])
+                loras = [lora for lora in loras if lora.get("id") not in MODELSCOPE_RETIRED_LORA_IDS and lora.get("target_model") not in MODELSCOPE_RETIRED_MODEL_IDS]
                 current["image_models"] = image_models
                 current["chat_models"] = chat_models
                 current["ms_loras"] = loras
@@ -1267,6 +1302,35 @@ def apply_locked_recommended_model_rules(base_url="", grouped=None):
     grouped["video"] = list(rule.get("video_models") or [])
     return grouped
 
+VIDEO_MODEL_NAME_RE = re.compile(
+    r"(?:^|[^a-z0-9])(?:veo|sora|wan(?:2|3|x)|seedance|kling|hailuo|pixverse|vidu|runway|pika|luma|"
+    r"hunyuan[-_]?video|ltx[-_]?video|grok[-_]?imagine[-_]?video|video|t2v|i2v|s2v|r2v)(?:[^a-z0-9]|$)",
+    re.I,
+)
+
+def is_video_model_name(model):
+    """Recognize common video model IDs when an upstream omits categories."""
+    return bool(VIDEO_MODEL_NAME_RE.search(str(model or "").strip()))
+
+def repair_apimart_model_buckets(image_models, chat_models, video_models):
+    """Keep APIMart's category buckets mutually exclusive.
+
+    Older APIMart catalogs exposed Seedance IDs without category metadata, and
+    the picker persisted them in ``chat_models``.  Apply the same repair to all
+    well-known video families so a later reload cannot reintroduce the issue.
+    """
+    image = model_list_from_values(image_models or [])
+    chat = model_list_from_values(chat_models or [])
+    video = model_list_from_values(video_models or [])
+    explicit_video = set(video)
+    moved = {model for model in [*image, *chat] if is_video_model_name(model) or model in explicit_video}
+    if not moved:
+        return image, chat, video
+    image = [model for model in image if model not in moved]
+    chat = [model for model in chat if model not in moved]
+    video = model_list_from_values([*video, *sorted(moved)])
+    return image, chat, video
+
 def provider_endpoint_url(provider, key, default_path):
     base_url = str((provider or {}).get("base_url") or AI_BASE_URL).strip().rstrip("/")
     override = str((provider or {}).get(key) or "").strip()
@@ -1340,18 +1404,15 @@ def normalize_provider(item):
     video_models = model_list_from_values(item.get("video_models") or [])
     if locked_rule and "video_models" in locked_rule:
         video_models = model_list_from_values(locked_rule.get("video_models") or [])
-    # Repair old APIMart configurations on load.  Before the category-aware
-    # catalog was added, Seedance IDs were persisted in chat_models; keeping
-    # them there would make the error reappear every time settings reopened.
-    # This migration is deliberately limited to APIMart providers so a user's
+    # Repair old APIMart configurations on load. Before the category-aware
+    # catalog was added, video IDs were persisted in chat_models; keeping them
+    # there would make the error reappear every time settings reopened. This
+    # migration is deliberately limited to APIMart providers so a user's
     # manual classification on other OpenAI-compatible providers is preserved.
     if protocol == "apimart" or "apimart.ai" in base_url.lower():
-        seedance_models = [model for model in [*image_models, *chat_models] if "seedance" in model.lower()]
-        if seedance_models:
-            moved = set(seedance_models)
-            image_models = [model for model in image_models if model not in moved]
-            chat_models = [model for model in chat_models if model not in moved]
-            video_models = model_list_from_values([*video_models, *seedance_models])
+        image_models, chat_models, video_models = repair_apimart_model_buckets(
+            image_models, chat_models, video_models
+        )
     return {
         "id": provider_id,
         "name": name,
@@ -3053,7 +3114,7 @@ def chat_system_prompt(payload):
 class MsGenerateRequest(BaseModel):
     prompt: str
     api_key: str = ""
-    model: str = "black-forest-labs/FLUX.2-klein-9B"
+    model: str = MODELSCOPE_DEFAULT_IMAGE_MODEL
     image_urls: List[str] = []
     width: int = 0
     height: int = 0
@@ -3986,7 +4047,7 @@ def resolve_chat_provider(provider: str, model: str, ms_model: str):
             raise HTTPException(status_code=400, detail="未配置 ModelScope API Key，请在 API 设置中填写。")
         base = modelscope_api_root()
         hdrs = {"Authorization": bearer_auth_value(clean_token), "Content-Type": "application/json"}
-        mdl = selected_model(ms_model or model, MODELSCOPE_CHAT_MODELS[0] if MODELSCOPE_CHAT_MODELS else "MiniMax/MiniMax-M2.7")
+        mdl = selected_model(ms_model or model, MODELSCOPE_CHAT_MODELS[0] if MODELSCOPE_CHAT_MODELS else MODELSCOPE_DEFAULT_CHAT_MODEL)
         return base, hdrs, mdl
     api_provider = get_api_provider(provider or "")
     if is_codex_provider(api_provider):
@@ -9935,7 +9996,7 @@ async def generate_modelscope_provider_image(prompt, size, model, reference_imag
         "X-ModelScope-Async-Mode": "true",
     }
     payload = {
-        "model": selected_model(model, "Tongyi-MAI/Z-Image-Turbo"),
+        "model": selected_model(model, MODELSCOPE_DEFAULT_IMAGE_MODEL),
         "prompt": prompt.strip(),
     }
     if width and height:
@@ -15136,7 +15197,7 @@ async def wait_for_agnes_video_task(client, provider, video_id, model):
     raise HTTPException(status_code=504, detail=f"Agnes 视频生成任务超时：{last_payload or video_id}")
 
 async def generate_agnes_video(client, payload, provider, base_url, requested_model):
-    model = selected_model(requested_model, "agnes-video-v2.0")
+    model = selected_model(requested_model, AGNES_DEFAULT_VIDEO_MODELS[0])
     width, height = agnes_video_dimensions(payload.aspect_ratio, payload.resolution)
     num_frames, frame_rate = agnes_video_frame_count(payload.duration, 24)
     body = {
@@ -15709,7 +15770,7 @@ async def canvas_video(payload: CanvasVideoRequest):
     volc_is_proxy = bool(is_volcengine and urllib.parse.urlparse(base_url).path.rstrip("/"))
     submit_urls = video_submit_url_candidates(provider, base_url)
     submit_url = submit_urls[0]
-    requested_model = selected_model(payload.model, "agnes-video-v2.0" if is_agnes else "veo3-fast")
+    requested_model = selected_model(payload.model, AGNES_DEFAULT_VIDEO_MODELS[0] if is_agnes else "veo3-fast")
     if is_tudou_provider(provider) and is_tudou_video_model(requested_model):
         try:
             async with httpx.AsyncClient(timeout=VIDEO_POLL_TIMEOUT) as tudou_client:
@@ -18076,7 +18137,7 @@ async def generate_angle_cloud(req: CloudGenRequest):
         "Content-Type": "application/json",
         "X-ModelScope-Async-Mode": "true"
     }
-    model = selected_model(req.model, "Qwen/Qwen-Image-Edit-2511")
+    model = selected_model(req.model, MODELSCOPE_DEFAULT_IMAGE_MODEL)
     payload = {
         "model": model,
         "prompt": req.prompt.strip(),
@@ -18170,7 +18231,7 @@ async def generate_cloud(req: CloudGenRequest):
         "Content-Type": "application/json",
     }
     payload = {
-        "model": "Tongyi-MAI/Z-Image-Turbo",
+        "model": MODELSCOPE_DEFAULT_IMAGE_MODEL,
         "prompt": req.prompt.strip(),
         "size": modelscope_size(req.resolution),
         "n": 1
